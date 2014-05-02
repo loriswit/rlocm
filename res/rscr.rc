@@ -1,0 +1,53 @@
+101 RCDATA data\mod\input_menu_x360.isg.ckd
+102 RCDATA data\mod\challenge_endless.isc.ckd
+
+103 RCDATA data\mod\challenge_1.tga.ckd_COMPRESSED
+104 RCDATA data\mod\challenge_2.tga.ckd_COMPRESSED
+105 RCDATA data\mod\challenge_3.tga.ckd_COMPRESSED
+106 RCDATA data\mod\challenge_4.tga.ckd_COMPRESSED
+107 RCDATA data\mod\challenge_5.tga.ckd_COMPRESSED
+
+108 RCDATA data\mod\painting_challengeendless_a1.tga.ckd_COMPRESSED
+109 RCDATA data\mod\suitcase_a1.tga.ckd_COMPRESSED
+
+
+111 RCDATA data\default\input_menu_x360.isg.ckd
+112 RCDATA data\default\challenge_endless.isc.ckd
+
+113 RCDATA data\default\challenge_1.tga.ckd_COMPRESSED
+114 RCDATA data\default\challenge_2.tga.ckd_COMPRESSED
+115 RCDATA data\default\challenge_3.tga.ckd_COMPRESSED
+116 RCDATA data\default\challenge_4.tga.ckd_COMPRESSED
+117 RCDATA data\default\challenge_5.tga.ckd_COMPRESSED
+
+118 RCDATA data\default\painting_challengeendless_a1.tga.ckd_COMPRESSED
+119 RCDATA data\default\suitcase_a1.tga.ckd_COMPRESSED
+
+1 VERSIONINFO
+FILEVERSION    	0,0,0,3
+PRODUCTVERSION 	0,0,0,3
+FILEOS 0x40004
+FILETYPE 0x01
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904E4"
+        BEGIN
+            VALUE "Comments",         "Seed Manager allows you to change the seed of the challenges used in Rayman® Legends.\0"
+            VALUE "CompanyName",      "RLM Team\0"
+            VALUE "FileDescription",  "Seed Manager, by Olybri\0"
+            VALUE "FileVersion",      "0.0.0.3\0"
+            VALUE "InternalName",     "Seed Manager\0"
+            VALUE "LegalCopyright",   "N/A\0"
+            VALUE "LegalTrademarks",  "Rayman® Legends is a trademark of Ubisoft."
+            VALUE "OriginalFilename", "seed_manager.exe\0"
+            VALUE "ProductName",      "Seed Manager\0"
+            VALUE "ProductVersion",   "Beta 1.0.3\0"
+        END
+    END
+
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 0x4E4
+    END
+END
