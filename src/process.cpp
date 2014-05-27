@@ -6,11 +6,24 @@ using namespace std;
 /// class process
 /****************************************/
 
-process::process(const std::string& process_name)
+process::process(const string& process_name)
 {
     success = true;
-    last_location = 0;
+    location = 0;
+    location_2 = 0;
 
+    open(process_name);
+}
+
+process::process(void)
+{
+    success = true;
+    location = 0;
+    location_2 = 0;
+}
+
+bool process::open(const string& process_name)
+{
     /// NO LONGER NECESSARY:
     /**
 	const char* window_name = process_name.c_str();
@@ -45,13 +58,14 @@ process::process(const std::string& process_name)
     if(phandle == NULL){
         last_error = "Process not found!";
         success = false;
-        return;
+        return false;
     }
 
     cout << "Success!" << endl;
+    return true;
 }
 
-seed process::get_seed(bool type)
+seed process::get_seed(int level)
 {
     cout << "Locating seed... ";
 
@@ -64,8 +78,8 @@ seed process::get_seed(bool type)
     _setcursortype(1);
 
     string str; // we're looking for this string in the RAM
-    if(type == DEFAULT) str = "countdown.act";
-    if(type == DOJO) str = "countdown_shaolin.act";
+    if(level != DOJO) str = "countdown.act";
+    else str = "countdown_shaolin.act";
 
     bool located = false; // true if the correct string has been found
     unsigned int address = 0;
@@ -81,18 +95,18 @@ seed process::get_seed(bool type)
         for(unsigned int j=0; j<sizeof(buffer); j++)
         {
             if(buffer[j] == str[0])
-            for(unsigned int k=1; k<str.size(); k++){ // we check if we found the string
-                if(buffer[j+k] == str[k]) located = true;
-                else{
-                    located = false;
-                    break;
+                for(unsigned int k=1; k<str.size(); k++){ // we check if we found the string
+                    if(buffer[j+k] == str[k]) located = true;
+                    else{
+                        located = false;
+                        break;
+                    }
                 }
-            }
 
             if(located)
             {
                 // if the string has been found, we need to be sure it's preceded by some specific data
-                if(type == DEFAULT)
+                if(level != DOJO)
                 {
                     // 01 00 00 00   XX XX XX XX   00 00 00 00   00 00 00 00 'str'
                     // (assuming XX is one byte of the seed and 'str' is the string that has been found)
@@ -219,19 +233,19 @@ seed process::get_seed(bool type)
     // now it's time to read the seed, which is located some bytes before the string that has been found
     seed s;
     int pos;
-    if(type == DEFAULT) pos = 12;
+    if(level != DOJO) pos = 12;
     else pos = 116;
 
     if(located){
-        cout << " Success!" << endl << "  SEED: ";
+        cout << " Success!" << endl << "  Seed: ";
         for(int i=0; i<4; i++){
             char byte;
             ReadProcessMemory(phandle,(void*)address-pos+i,&byte,sizeof(char),NULL);
             s.set(i, byte);
             cout <<  hex << uppercase << setw(2) << setfill('0') << s[i] << " ";
         }
-        last_location = address-pos;
-        cout << "(location: 0x" << hex << uppercase << last_location << ")" << endl;
+        location = address-pos;
+        cout << "(location: 0x" << hex << uppercase << location << ")" << endl;
     }
     else{
         last_error = "Seed not found!";
@@ -241,15 +255,231 @@ seed process::get_seed(bool type)
     return s;
 }
 
-bool process::change_seed(seed cur_seed, seed new_seed)
+challenge_type process::get_type(seed cur_seed)
+{
+    cout << "Locating challenge type... ";
+    challenge_type type;
+    type.level = UNKNOWN_LEVEL;
+    type.event = UNKNOWN_EVENT;
+    type.difficulty = UNKNOWN_DIFFICULTY;
+    type.distance = UNKNOWN_DISTANCE;
+    type.limit = UNKNOWN_LIMIT;
+
+    if(!location){
+        last_error = "'location' is undefined";
+        success = false;
+        return type;
+    }
+
+    uint8_t byte;
+    seed s;
+    for(int i=0; i<4; i++){
+        ReadProcessMemory(phandle,(void*)location+i-0x5F8,&byte,sizeof(char),NULL);
+        s.set(i, byte);
+    }
+    if(s.to_str() != cur_seed.to_str()){
+        last_error = "Seed might be corrupted...";
+        success = false;
+        return type;
+    }
+
+    string type_str;
+    int i = 0;
+    while(byte){
+        ReadProcessMemory(phandle,(void*)location+i-0x5F8+0x34,&byte,sizeof(char),NULL);
+        if(byte) type_str += byte;
+        i++;
+    }
+
+    /// SEARCH ALGORITHM
+    bool located = false;
+    i = 0;
+    uint32_t address = 0x10000000;
+    while(!located){
+        ReadProcessMemory(phandle,(void*)address-i,&byte,sizeof(char),NULL);
+        bool skip = true;
+        if(byte == type_str[0]){
+            located = true;
+            for(unsigned int j=0; j<type_str.size(); j++){
+                ReadProcessMemory(phandle,(void*)address-i+j,&byte,sizeof(char),NULL);
+                //if(address-i == 0xd790750) cout << byte << " " << type_str[type_str.size()-1-j] << endl;
+                if(byte != type_str[j]){
+                    located = false;
+                    break;
+                }
+            }
+        }
+
+        for(unsigned int j=0; j<type_str.size(); j++)
+            if(byte == type_str[j]) skip = false;
+
+        //if(address-i < 0xd790800 && address-i > 0xd790600) cout << "LAC: " << address-i << endl;
+
+        if(located){
+            skip = false;
+            //cout << "loc: " << address-i << endl;
+            for(int j=0; j<4; j++){
+                ReadProcessMemory(phandle,(void*)address-i+j-0x34,&byte,sizeof(char),NULL);
+                if(byte != cur_seed[j]) located = false;
+                //cout << "   byte: " << hex << int(byte) << "   seed[i]: " << int(cur_seed[j]) << endl;
+            }
+            if(located) location_2 = address-i;
+        }
+        //if((address-i)%0x100000 == 0) cout << "0x" << hex << address-i << endl;
+        i++;
+        if(skip) i += type_str.size() - 1;
+        if(address-i < 0x100000){
+            last_error = "Challenge type not found!";
+            success = false;
+            return type;
+        }
+    }
+
+    location_2 -= 0x34;
+
+    type.distance = get_float(location_2 + 0xC);
+    type.limit = get_float(location_2 + 0x10);
+
+    cout << "Success!" << endl << "  (location: 0x" << hex << uppercase << location_2 << ")" << endl;
+
+    /// PIT
+    if(type_str == "challenge_spikyroad_default_normal.isg"){
+        type.level = PIT;
+        if(type.distance == -1) type.event = DISTANCE;
+        else type.event = SPEED;
+        type.difficulty = NORMAL;
+    }
+    else if(type_str == "challenge_spikyroad_default_expert.isg"){
+        type.level = PIT;
+        if(type.distance == -1) type.event = DISTANCE;
+        else type.event = SPEED;
+        type.difficulty = EXPERT;
+    }
+    else if(type_str == "challenge_spikyroad_lumsattack_normal.isg"){
+        type.level = PIT;
+        type.event = LUMS;
+        type.difficulty = NORMAL;
+    }
+    else if(type_str == "challenge_spikyroad_lumsattack_expert.isg"){
+        type.level = PIT;
+        type.event = LUMS;
+        type.difficulty = EXPERT;
+    }
+
+    /// LOTLD
+    else if(type_str == "challenge_run_default_normal.isg"){
+        type.level = LOTLD;
+        type.event = DISTANCE;
+        type.difficulty = NORMAL;
+    }
+    else if(type_str == "challenge_run_default_expert.isg"){
+        type.level = LOTLD;
+        type.event = DISTANCE;
+        type.difficulty = EXPERT;
+    }
+    else if(type_str == "challenge_run_lumsattack_normal.isg"){
+        type.level = LOTLD;
+        type.event = LUMS;
+        type.difficulty = NORMAL;
+    }
+    else if(type_str == "challenge_run_lumsattack_expert.isg"){
+        type.level = LOTLD;
+        type.event = LUMS;
+        type.difficulty = EXPERT;
+    }
+    else if(type_str == "challenge_run_timeattack_normal.isg"){
+        type.level = LOTLD;
+        type.event = SPEED;
+        type.difficulty = NORMAL;
+    }
+    else if(type_str == "challenge_run_timeattack_expert.isg"){
+        type.level = LOTLD;
+        type.event = SPEED;
+        type.difficulty = EXPERT;
+    }
+
+    /// TOWER
+    else if(type_str == "challenge_goingup_default_expert.isg"){
+        type.level = TOWER;
+        if(type.distance == -1) type.event = DISTANCE;
+        else type.event = SPEED;
+        type.difficulty = EXPERT;
+    }
+
+    return type;
+}
+
+float process::get_float(uint32_t address)
+{
+    uint32_t num = 0;
+    for(int i=0; i<4; i++){
+        num *= 0x100;
+        uint8_t byte;
+        ReadProcessMemory(phandle,(void*)address+i,&byte,sizeof(char),NULL);
+        num += byte;
+    }
+    num = bundle::swap(num);
+    float distance = *((float*)&num);
+    return distance;
+}
+
+uint32_t process::float_to_uint32(float f)
+{
+    uint32_t num = *((uint32_t*)&f);
+    return num;
+}
+
+bool process::change_seed(seed new_seed)
+{
+    cout << "Writing seed to process memory" << endl;
+
+    unsigned int address = location;
+
+    cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
+    for(int i=0; i<4; i++){
+        int byte = new_seed[i];
+        if(!WriteProcessMemory(phandle,(void*)address+i,&byte,1,NULL)){
+            last_error = "Could not write to process memory";
+            success = false;
+            return false;
+        }
+        else success = true;
+    }
+    cout << "Success!" << endl;
+
+    address -= 0x5F8;
+    cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
+    for(int i=0; i<4; i++){
+        int byte = new_seed[i];
+        if(!WriteProcessMemory(phandle,(void*)address+i,&byte,1,NULL)){
+            last_error = "Could not write to process memory";
+            success = false;
+            return false;
+        }
+        else success = true;
+    }
+    cout << "Success!" << endl;
+
+    address = location_2;
+    cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
+    for(int i=0; i<4; i++){
+        int byte = new_seed[i];
+        if(!WriteProcessMemory(phandle,(void*)address+i,&byte,1,NULL)){
+            last_error = "Could not write to process memory";
+            success = false;
+            return false;
+        }
+        else success = true;
+    }
+    cout << "Success!" << endl;
+    cout << "Seed has been changed successfully!" << endl;
+    return true;
+}
+
+
+bool process::change_seed_dojo(seed cur_seed, seed new_seed)
 {
     cout << "Writing seed to process memory";
-
-    /*if(!bund.check_training()){
-        last_error = "You must be playing in the training room to change the seed!";
-        success = false;
-        return false;
-    }*/
 
     cout << endl << "Please wait...";
 
@@ -331,10 +561,10 @@ bool process::change_seed(seed cur_seed, seed new_seed)
                 if(success) cout << "Success!" << endl << "Please wait...";
                 located = false;
             }
-            if(address > last_location+10) break;
+            if(address > location+10) break;
             address++;
         }
-        if(address > last_location+10) break;
+        if(address > location+10) break;
     }
 
     #if DEBUG
@@ -349,9 +579,90 @@ bool process::change_seed(seed cur_seed, seed new_seed)
     }
 
     gotoxy(1,wherey());
-    cout << "Seed has been written successfully!" << endl;
+    cout << "Seed has been changed successfully!" << endl;
     return true;
 }
+
+bool process::change_distance(float distance)
+{
+    uint32_t num = float_to_uint32(distance);
+
+    cout << "Writing goal to process memory" << endl;
+
+    unsigned int address = location - 0x5F8 + 0xC;
+
+    cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
+    uint32_t u = num;
+    for(int i=0; i<4; i++){
+        uint8_t byte = u % 0x100;
+        if(!WriteProcessMemory(phandle,(void*)address+i,&byte,1,NULL)){
+            last_error = "Could not write to process memory";
+            success = false;
+            return false;
+        }
+        else success = true;
+        u /= 0x100;
+    }
+    cout << "Success!" << endl;
+
+    address = location_2 + 0xC;
+    cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
+    u = num;
+    for(int i=0; i<4; i++){
+        uint8_t byte = u % 0x100;
+        if(!WriteProcessMemory(phandle,(void*)address+i,&byte,1,NULL)){
+            last_error = "Could not write to process memory";
+            success = false;
+            return false;
+        }
+        else success = true;
+        u /= 0x100;
+    }
+    cout << "Success!" << endl;
+    cout << "Goal has been changed successfully!" << endl;
+    return true;
+}
+
+bool process::change_limit(float limit)
+{
+    uint32_t num = float_to_uint32(limit);
+
+    cout << "Writing time limit to process memory" << endl;
+
+    unsigned int address = location - 0x5F8 + 0x10;
+
+    cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
+    uint32_t u = num;
+    for(int i=0; i<4; i++){
+        uint8_t byte = u % 0x100;
+        if(!WriteProcessMemory(phandle,(void*)address+i,&byte,1,NULL)){
+            last_error = "Could not write to process memory";
+            success = false;
+            return false;
+        }
+        else success = true;
+        u /= 0x100;
+    }
+    cout << "Success!" << endl;
+
+    address = location_2 + 0x10;
+    cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
+    u = num;
+    for(int i=0; i<4; i++){
+        uint8_t byte = u % 0x100;
+        if(!WriteProcessMemory(phandle,(void*)address+i,&byte,1,NULL)){
+            last_error = "Could not write to process memory";
+            success = false;
+            return false;
+        }
+        else success = true;
+        u /= 0x100;
+    }
+    cout << "Success!" << endl;
+    cout << "Time limit has been changed successfully!" << endl;
+    return true;
+}
+
 
 process::operator bool() const
 {

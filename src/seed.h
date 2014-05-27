@@ -12,6 +12,7 @@ class seed
         seed(void): a(0), b(0), c(0), d(0) {}
 
         int operator[](size_t pos);
+        void operator=(seed s);
 
         std::string to_str(void);
         void set(size_t pos, int i);

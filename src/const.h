@@ -42,7 +42,8 @@
 #define PAINTING_CHALLENGEENDLESS_A1    108
 #define SUITCASE_A1                     109
 
-#define DEBUG 0 // DO NOT MODIFY
+#define DEBUG 0             // DO NOT MODIFY
+#define DEV_MODE FLASE      // DO NOT MODIFY
 
 struct update_info
 {
@@ -51,12 +52,10 @@ struct update_info
     std::string url;
 };
 
-const std::string VERSION = "0.0.0.3";
-const std::string VERSION_STR = "beta 1.0.3";
-const std::string UPDATE_URL = "https://dl.dropboxusercontent.com/u/109130039/seed_manager/update?dl=1";
-
-const bool DEFAULT = false;
-const bool DOJO = true;
+const int BUILD = 0006;
+//const std::string VERSION = "0.0.1.1";
+const std::string VERSION_STR = "beta 1.1.1";
+const std::string UPDATE_URL = "https://dl.dropboxusercontent.com/u/109130039/seed-manager.com/update?dl=1";
 
 const bool NO = false;
 const bool YES = true;
@@ -68,6 +67,8 @@ const std::string BUNDLE_NAME_2 = "C:/Program Files (x86)/Ubisoft/Rayman Legends
 // Password:
 // p4v8zow9
 const std::string PW = "\x3B\xAB\x6F\xB1\x73\xB5\xAA\xB2\x74";
+// u3nqp2ri
+//const std::string PW = "\x82\xF7\xB5\xF0\xF3\xF2\xB4\xF4\xEB";
 
 const std::string FILE_LIST[9] = {
     "cache/itf_cooked/pc/enginedata/inputs/menu/input_menu_x360.isg.ckd",

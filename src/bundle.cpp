@@ -49,7 +49,7 @@ void bundle::open(const string& bundle_name)
     }
 }
 
-file_info bundle::seek(const string& filepath)
+file_info bundle::seek(const string& filepath, bool out)
 {
     file.seekg(0x30);
 
@@ -84,8 +84,10 @@ file_info bundle::seek(const string& filepath)
         if(!file) success = false;
 
         if(name == filepath){
-            /*if(zsize == 0) cout << name << endl << " at 0x" << hex << uppercase << setw(16) << setfill('0') << offset << " size: " << size << " bytes" << endl << endl;
-            else cout << name << endl << " at 0x" << hex << uppercase << setw(16) << setfill('0') << offset << " size: 0x" << size << " compressed_size: 0x" << zsize << endl << endl;*/
+            if(out){
+                if(zsize == 0) cout << name << endl << " at 0x" << hex << uppercase << setw(16) << setfill('0') << offset << " size: 0x" << size << " bytes" << endl << endl;
+                          else cout << name << endl << " at 0x" << hex << uppercase << setw(16) << setfill('0') << offset << " size: 0x" << size << " compressed_size: 0x" << zsize << endl << endl;
+            }
             fi.name = name;
             fi.offset = offset;
             fi.size = size;
@@ -110,6 +112,9 @@ file_info bundle::seek(const string& filepath)
 
 bool bundle::check_training(void)
 {
+    #if DEV_MODE
+    return true;
+    #else
     vector<uint8_t> data;
     data = load_resource(INPUT_MENU_X360);
     file.seekg(seek(FILE_LIST[0]).offset);
@@ -119,11 +124,11 @@ bool bundle::check_training(void)
 
     data = load_resource(CHALLENGE_ENDLESS);
     file.seekg(seek(FILE_LIST[1]).offset);
-
     for(unsigned int i=0; i<data.size(); i++)
         if(file.get() != data[i]) return false;
 
     return true;
+    #endif
 }
 
 bool bundle::install_training_room(int resource)

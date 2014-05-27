@@ -34,6 +34,14 @@ int seed::operator[](size_t pos)
     }
 }
 
+void seed::operator=(seed s)
+{
+    a = s[0];
+    b = s[1];
+    c = s[2];
+    d = s[3];
+}
+
 void seed::set(size_t pos, int i)
 {
     switch(pos){

@@ -20,7 +20,7 @@ class bundle
         void open(const std::string& bundle_name);
 
         void patch(const std::string& patch_folder);
-        file_info seek(const std::string& filepath);
+        file_info seek(const std::string& filepath, bool out = false);
 
         bool check_training(void);
         bool install_training_room(int resource = 101);
