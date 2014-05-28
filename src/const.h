@@ -42,8 +42,10 @@
 #define PAINTING_CHALLENGEENDLESS_A1    108
 #define SUITCASE_A1                     109
 
+#define CHALLENGE_SHAOLIN_EXPERT        121
+
 #define DEBUG 0             // DO NOT MODIFY
-#define DEV_MODE FLASE      // DO NOT MODIFY
+#define DEV_MODE FALSE      // DO NOT MODIFY
 
 struct update_info
 {
@@ -52,7 +54,7 @@ struct update_info
     std::string url;
 };
 
-const int BUILD = 0006;
+const int BUILD = 0007;
 //const std::string VERSION = "0.0.1.1";
 const std::string VERSION_STR = "beta 1.1.1";
 const std::string UPDATE_URL = "https://dl.dropboxusercontent.com/u/109130039/seed-manager.com/update?dl=1";
@@ -80,6 +82,8 @@ const std::string FILE_LIST[9] = {
     "cache/itf_cooked/pc/world/home/paintings_and_notifications/painting_levels/textures/challenge/challenge_5.tga.ckd",
     "cache/itf_cooked/pc/world/home/paintings_and_notifications/painting_challengeendless/animation/painting_challengeendless_a1.tga.ckd",
     "cache/itf_cooked/pc/world/common/ui/suitcase/animation/suitcase_a1.tga.ckd"};
+
+const std::string SHAOLIN_PATH = "cache/itf_cooked/pc/world/challenge/shaolinplaza/brick/challenge_shaolin_default_expert.isg.ckd";
 
 /// NO LONGER NECESSARY:
 /**

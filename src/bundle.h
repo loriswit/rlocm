@@ -23,8 +23,11 @@ class bundle
         file_info seek(const std::string& filepath, bool out = false);
 
         bool check_training(void);
+        bool check_dojo_mod(void);
         bool install_training_room(int resource = 101);
         bool uninstall_training_room(void);
+        bool install_dojo_mod(int resource = 121);
+        bool uninstall_dojo_mod(void);
         std::vector<uint8_t> load_resource(int name);
 
         void close(void);

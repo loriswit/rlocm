@@ -1,4 +1,5 @@
-SEED MANAGER (beta version 1.1.1), by Olybri
+SEED MANAGER, by Olybri
+Beta version 1.1.1, build #0007
 http://tinyurl.com/seed-manager
 
 ******* ABOUT ********
@@ -15,9 +16,10 @@ The program has an auto-update feature, which needs an internet connexion.
 Follow more informations about updates here: http://goo.gl/uEN2Wt
 
 WHAT'S NEW?
-   -- Beta 1.1.1 - May 2014 --
--Deleted the server connexion when entering the training room (users can play offline now)
--Added an option to change the time limit of a challenge
+   -- Beta 1.1.1 - 28th May 2014 --
+-Deleted the server connexion when entering the training room (users can play offline now).
+-Added an option to change the time limit of a challenge.
+-Added a mod for the Dojo (used in the tournament).
 
    -- Beta 1.1.0 - 22th May 2014 --
 -Added a new menu system.
@@ -46,6 +48,7 @@ To start editing the current challenge's properties, launch seed_manager.exe (ad
 You have 4 hotkeys you can use:
 	Press the 'C' key to load the current challenge properties (more informations below).
 	Press the 'T' key to install the training room mod (more informations below).
+	Press the 'D' key to install the mod for the Dojo (used in the tournament).
 	Press the 'H' key to open this file.
 	Press the 'Q' key to exit the program.
 	
@@ -63,6 +66,7 @@ Now the program is going to look for the current challenge's properties in the g
 You have now 5 hotkeys you can use:
 	Press the 'S' key to start changing the seed (more informations below).
 	Press the 'G' key to start changing the goal (more informations below).
+	Press the 'L' key to start changing the time limit (more informations below).
 	Press the 'B' key to go back to the main menu.
 	Press the 'H' key to open this file.
 	Press the 'Q' key to exit the program.
@@ -82,6 +86,12 @@ TIP: If you want to paste a seed you have copied, right-click on the window then
 After pressing the 'G' key, the program will ask you to input the new goal (meters or lums) that will replace the one currently in use.
 The goal is a floating point value. Example of goals: 500, 32.25, 60500, ...
 Press the 'Enter' key to apply the changes. Wait until the program says "Goal has been changed successfully!".
+The modifications are made immediately. When you'll go back on Rayman® Legends, you won't need to restart the challenge.
+
+******* CHANGING THE TIME LIMIT ********
+After pressing the 'L' key, the program will ask you to input the new time limit (in seconds) that will replace the one currently in use.
+The time limit is a floating point value. Example of time limits: 120, 21.45, 3400, ...
+Press the 'Enter' key to apply the changes. Wait until the program says "Time limit has been changed successfully!".
 The modifications are made immediately. When you'll go back on Rayman® Legends, you won't need to restart the challenge.
 
 ******* THE TRAINING ROOM ********

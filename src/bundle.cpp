@@ -131,10 +131,22 @@ bool bundle::check_training(void)
     #endif
 }
 
+bool bundle::check_dojo_mod(void)
+{
+    vector<uint8_t> data;
+    data = load_resource(CHALLENGE_SHAOLIN_EXPERT);
+    file.seekg(seek(SHAOLIN_PATH).offset);
+
+    for(unsigned int i=0; i<data.size(); i++)
+        if(file.get() != data[i]) return false;
+
+    return true;
+}
+
 bool bundle::install_training_room(int resource)
 {
     if(resource == 101) cout << "Installing the training room...";
-    else cout << "Unstalling the training room...";
+    else cout << "Uninstalling the training room...";
 
 	if(process::get_handle(PROCESS_NAME) != NULL){
 	    if(resource == 101) last_error = "Could not install the training room while '" + PROCESS_NAME + "' is running!";
@@ -183,6 +195,55 @@ bool bundle::uninstall_training_room(void)
 {
     return install_training_room(111);
 }
+
+bool bundle::install_dojo_mod(int resource)
+{
+    if(resource == 121) cout << "Installing the Dojo mod for the tournament...";
+    else cout << "Uninstalling the Dojo mod for the tournament...";
+
+    if(!check_training() && resource == 121){
+	    last_error = "Could not install the Dojo mod if the training room is not installed!";
+	    success = false;
+	    return false;
+	}
+
+    vector<uint8_t> vec;
+
+    file.seekg(0, file.end);
+    streampos length = file.tellg();
+    file.seekg(0, file.beg);
+
+    vec = load_resource(resource);
+    uint64_t address = seek(SHAOLIN_PATH).offset;
+    cout << endl << "File 1/1 | size: 0x" << hex << uppercase << setw(6) << setfill('0') << vec.size() << " bytes | address: 0x" << address;
+
+    if(length < address + vec.size()){
+        last_error = "File '" + filename + "' might be corrupted!";
+        success = false;
+        return false;
+    }
+
+    file.seekg(address);
+    for(unsigned int j=0; j<vec.size(); j++) file.put(vec[j]);
+
+    cout << endl;
+
+    if(!file){
+        last_error = "Could not write into file 'Bundle_PC.ipk'!";
+	    success = false;
+	    return false;
+    }
+
+    if(resource == 121) cout << "The Dojo mod for the tournament has been installed successfully!" << endl;
+    else cout << "The Dojo mod for the tournament has been uninstalled successfully!" << endl;
+    return true;
+}
+
+bool bundle::uninstall_dojo_mod(void)
+{
+    return install_dojo_mod(122);
+}
+
 
 vector<uint8_t> bundle::load_resource(int name)
 {

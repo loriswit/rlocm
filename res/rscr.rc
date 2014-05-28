@@ -23,6 +23,9 @@
 118 RCDATA data\default\painting_challengeendless_a1.tga.ckd_COMPRESSED
 119 RCDATA data\default\suitcase_a1.tga.ckd_COMPRESSED
 
+121 RCDATA data\mod\challenge_shaolin_default_expert.isg.ckd_COMPRESSED
+122 RCDATA data\default\challenge_shaolin_default_expert.isg.ckd_COMPRESSED
+
 1 VERSIONINFO
 FILEVERSION    	0,0,1,1
 PRODUCTVERSION 	0,0,1,1

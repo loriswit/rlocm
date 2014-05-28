@@ -96,6 +96,7 @@ int main()
         }
     }
     bool training_mode = bund.check_training();
+    bool dojomod_mode = bund.check_dojo_mod();
     bund.close();
 
     int lol = 0;
@@ -115,6 +116,11 @@ int main()
         /*cout << "PRESS U  to install ";
         cout << "Ubi Ray";
         cout << "." << endl;*/
+
+        if(!training_mode) textcolor(RED);
+        if(dojomod_mode) cout << "PRESS D  to uninstall modded Dojo (for the tournament)." << endl;
+        else cout << "PRESS D  to install modded Dojo (for the tournament)." << endl;
+        textcolor(LIGHTGRAY);
 
         cout << endl;
 
@@ -137,6 +143,8 @@ int main()
                 if(training_mode) bund.uninstall_training_room();
                 else bund.install_training_room();
                 training_mode = bund.check_training();
+                if(!training_mode && dojomod_mode) bund.uninstall_dojo_mod();
+                dojomod_mode = bund.check_dojo_mod();
                 bund.close();
 
                 if(!bund){ error_out(bund.get_last_error()); continue; }
@@ -144,6 +152,26 @@ int main()
                 wait();
                 continue;}
             #endif
+
+            case 'D':{
+                cout << endl;
+
+                bund.open(bundle_path);
+                if(!bund){
+                    string error = bund.get_last_error();
+                    error_out(error);
+                    continue;
+                }
+
+                if(dojomod_mode) bund.uninstall_dojo_mod();
+                else bund.install_dojo_mod();
+                dojomod_mode = bund.check_dojo_mod();
+                bund.close();
+
+                if(!bund){ error_out(bund.get_last_error()); continue; }
+
+                wait();
+                continue;}
 
             case 'C':
                 cout << endl;
@@ -393,7 +421,7 @@ void warning_out(const string& str, bool _exit)
 char ask_tshq(void)
 {
     char c = 0;
-    while(c != 'T' && c != 'C' && c != 'H' && c != 'Q'/* && c != 'U'*/)
+    while(c != 'T' && c != 'C' && c != 'H' && c != 'Q' && c != 'D')
         c = toupper(getch());
 
     return c;
