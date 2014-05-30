@@ -5,6 +5,17 @@
 /// INCLUDES
 /****************************************/
 
+#define _WIN32_WINNT 0x0500
+
+#include <FL/Fl.H>
+#include <FL/Fl_Window.H>
+#include <Fl/Fl_Check_Button.H>
+#include <Fl/Fl_Box.H>
+#include <FL/fl_ask.H>
+#include <FL/Fl_Input.H>
+#include <FL/Fl_Float_Input.H>
+#include <FL/Fl_Native_File_Chooser.H>
+
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -14,8 +25,8 @@
 
 #include <windows.h>
 #include <dirent.h>
-#include <sys/stat.h>
-#include <conio/conio2.h>
+//#include <sys/stat.h>
+#include <conio2.h>
 #include <wininet.h>
 #include <tlhelp32.h>
 //#include <zlib/zlib.h>
@@ -44,8 +55,26 @@
 
 #define CHALLENGE_SHAOLIN_EXPERT        121
 
-#define DEBUG 0             // DO NOT MODIFY
-#define DEV_MODE FALSE      // DO NOT MODIFY
+#define DEV_MODE     TRUE    // DO NOT MODIFY
+
+// Window size
+const int WIDTH = 360;
+#if !DEV_MODE
+const int HEIGHT = 250;
+#else
+const int HEIGHT = 280;
+#endif
+
+class StatusBar : public Fl_Box
+{
+    public:
+        StatusBar(void) : Fl_Box(-1, HEIGHT-25, WIDTH+2, 26){
+            align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
+            box(FL_BORDER_BOX);
+        }
+        void set(const char* text){ label(text); }
+        void clear(void){ label(""); }
+};
 
 struct update_info
 {
@@ -54,9 +83,9 @@ struct update_info
     std::string url;
 };
 
-const int BUILD = 0007;
+const int BUILD = 8;
 //const std::string VERSION = "0.0.1.1";
-const std::string VERSION_STR = "beta 1.1.1";
+const std::string VERSION_STR = "1.0.0";
 const std::string UPDATE_URL = "https://dl.dropboxusercontent.com/u/109130039/seed-manager.com/update?dl=1";
 
 const bool NO = false;

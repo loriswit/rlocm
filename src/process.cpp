@@ -56,7 +56,7 @@ bool process::open(const string& process_name)
     cout << "Opening process " << process_name << "... ";
     phandle = get_handle(process_name);
     if(phandle == NULL){
-        last_error = "Process not found!";
+        last_error = "Process \"" + process_name + "\" not found!";
         success = false;
         return false;
     }
@@ -64,6 +64,8 @@ bool process::open(const string& process_name)
     cout << "Success!" << endl;
     return true;
 }
+
+extern StatusBar status_bar;
 
 seed process::get_seed(int level)
 {
@@ -85,6 +87,7 @@ seed process::get_seed(int level)
     unsigned int address = 0;
     unsigned char buffer[0x1000];
 
+    int percent = 0;
     for(int i=0; i<0x100000; i++)
     {
         // we read the RAM by brick of 0x1000 bytes
@@ -223,6 +226,20 @@ seed process::get_seed(int level)
             if(progression%4 == 2) cout << char(0xB1);
             if(progression%4 == 3) cout << char(0xB2);
         }
+        if(percent == -1) continue;
+        if(i/2000 != percent && percent < 100){
+            percent = i/2000;
+            ostringstream str;
+            if(level != DOJO) str << "Loading challenge " << percent/2 << "%";
+            else str << "Loading challenge " << percent << "%";
+            status_bar.set(str.str().c_str());
+            Fl::flush();
+        }
+        else if(percent > 99){
+            status_bar.set("Please wait...");
+            Fl::flush();
+            percent = -1;
+        }
     }
 
     // we finalize the progress bar
@@ -294,6 +311,7 @@ challenge_type process::get_type(seed cur_seed)
     /// SEARCH ALGORITHM
     bool located = false;
     i = 0;
+    int progression = 0;
     uint32_t address = 0x10000000;
     while(!located){
         ReadProcessMemory(phandle,(void*)address-i,&byte,sizeof(char),NULL);
@@ -332,6 +350,19 @@ challenge_type process::get_type(seed cur_seed)
             last_error = "Challenge type not found!";
             success = false;
             return type;
+        }
+
+        if(i/0x290000 != progression && progression < 50){
+            progression++;
+            ostringstream str;
+            str << "Loading challenge " << progression+50 << "%";
+            status_bar.set(str.str().c_str());
+            Fl::flush();
+        }
+        else if(progression == 50){
+            progression++;
+            status_bar.set("Please wait...");
+            Fl::flush();
         }
     }
 
@@ -403,6 +434,23 @@ challenge_type process::get_type(seed cur_seed)
         type.level = TOWER;
         if(type.distance == -1) type.event = DISTANCE;
         else type.event = SPEED;
+        type.difficulty = EXPERT;
+    }
+
+    /// MURPHY
+    else if(type_str == "challenge_drc_castle_default_normal.isg"){
+        type.level = MURPHY;
+        type.event = DISTANCE;
+        type.difficulty = NORMAL;
+    }
+    else if(type_str == "challenge_drc_castle_default_expert.isg"){
+        type.level = MURPHY;
+        type.event = DISTANCE;
+        type.difficulty = EXPERT;
+    }
+    else if(type_str == "challenge_drc_castle_lumsattack_expert.isg"){
+        type.level = MURPHY;
+        type.event = LUMS;
         type.difficulty = EXPERT;
     }
 
@@ -489,42 +537,14 @@ bool process::change_seed_dojo(seed cur_seed, seed new_seed)
 
     int occur_cnt = 0;
 
-    #if DEBUG
-        ofstream ofs("temp.txt", ios::out|ios::trunc);
-        ofs << "start" << endl << endl;
-    #endif
-
     for(int i=0; i<0x100000; i++)
     {
         address = i*0x1000;
-        #if DEBUG
-            ofs << "  i = 0x" << hex << i << endl;
-            ofs << "  address = 0x" << hex << address << endl;
-            ofs << "  ReadProcessMemory..." << endl;
-        #endif
         if(!ReadProcessMemory(phandle,(void*)address,&buffer,sizeof(buffer),NULL)) continue; // continue if the area is inaccessible
-
-        #if DEBUG
-            ofs << "  sizeof(buffer) = 0x" << hex << sizeof(buffer) << endl;
-        #endif
-
         for(unsigned int j=0; j<sizeof(buffer); j++)
         {
-            #if DEBUG
-                ofs << "    j = 0x" << hex << j << endl;
-                ofs << "    buffer[j] = 0x" << hex << int(buffer[j]) << endl;
-                ofs << "    cur_seed[0] = 0x" << hex << cur_seed[0] << endl;
-            #endif
             if(buffer[j] == cur_seed[0]){
-                #if DEBUG
-                        ofs << "      buffer[j] = cur_seed[0]" << endl;
-                #endif
                 for(int k=1; k<4; k++){ // we check if we found the current seed
-                    #if DEBUG
-                        ofs << "        k = 0x" << hex << k << endl;
-                        ofs << "        buffer[j+k] = 0x" << hex << int(buffer[j+k]) << endl;
-                        ofs << "        cur_seed[k] = 0x" << hex << cur_seed[k] << endl;
-                    #endif
                     if(buffer[j+k] == cur_seed[k]) located=true;
                     else{
                         located = false;
@@ -538,19 +558,9 @@ bool process::change_seed_dojo(seed cur_seed, seed new_seed)
                 occur_cnt++;
                 gotoxy(1,wherey());
                 cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
-                #if DEBUG
-                    ofs << "      located = true" << endl;
-                    ofs << "      occur_cnt = " << occur_cnt << endl;
-                    ofs << "      cout: at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... " << endl;
-                #endif
                 // we write the seed at the address
                 for(int k=0; k<4; k++){
                     int byte = new_seed[k];
-                    #if DEBUG
-                        ofs << "        k = 0x" << hex << k << endl;
-                        ofs << "        new_seed[k] = 0x" << hex << new_seed[k] << endl;
-                        ofs << "        WriteProcessMemory..." << endl;
-                    #endif
                     if(!WriteProcessMemory(phandle,(void*)address+k,&byte,1,NULL)){
                         last_error = "Could not write to process memory";
                         success = false;
@@ -566,11 +576,6 @@ bool process::change_seed_dojo(seed cur_seed, seed new_seed)
         }
         if(address > location+10) break;
     }
-
-    #if DEBUG
-        ofs << "end" << endl;
-        ofs.close();
-    #endif
 
     if(!occur_cnt){
         last_error = "Could not change the seed!";

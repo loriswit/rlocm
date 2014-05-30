@@ -2,6 +2,12 @@
 
 using namespace std;
 
+bundle::bundle(void)
+{
+    is_open = false;
+    success = false;
+}
+
 bundle::bundle(const string& bundle_name)
 {
     is_open = false;
@@ -112,9 +118,6 @@ file_info bundle::seek(const string& filepath, bool out)
 
 bool bundle::check_training(void)
 {
-    #if DEV_MODE
-    return true;
-    #else
     vector<uint8_t> data;
     data = load_resource(INPUT_MENU_X360);
     file.seekg(seek(FILE_LIST[0]).offset);
@@ -128,7 +131,6 @@ bool bundle::check_training(void)
         if(file.get() != data[i]) return false;
 
     return true;
-    #endif
 }
 
 bool bundle::check_dojo_mod(void)
@@ -148,11 +150,18 @@ bool bundle::install_training_room(int resource)
     if(resource == 101) cout << "Installing the training room...";
     else cout << "Uninstalling the training room...";
 
+
 	if(process::get_handle(PROCESS_NAME) != NULL){
+	    #if !DEV_MODE
 	    if(resource == 101) last_error = "Could not install the training room while '" + PROCESS_NAME + "' is running!";
 	    else last_error = "Could not uninstall the training room while '" + PROCESS_NAME + "' is running!";
 	    success = false;
 	    return false;
+	    #else
+	    textcolor(CYAN);
+	    cout << endl << "WARNING: " << PROCESS_NAME << " is running!";
+	    textcolor(LIGHTGRAY);
+	    #endif
 	}
 
     vector<uint8_t> vec;

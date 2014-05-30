@@ -23,12 +23,9 @@
 118 RCDATA data\default\painting_challengeendless_a1.tga.ckd_COMPRESSED
 119 RCDATA data\default\suitcase_a1.tga.ckd_COMPRESSED
 
-121 RCDATA data\mod\challenge_shaolin_default_expert.isg.ckd_COMPRESSED
-122 RCDATA data\default\challenge_shaolin_default_expert.isg.ckd_COMPRESSED
-
 1 VERSIONINFO
-FILEVERSION    	0,0,1,1
-PRODUCTVERSION 	0,0,1,1
+FILEVERSION    	0,1,0,0
+PRODUCTVERSION 	0,1,0,0
 FILEOS 0x40004
 FILETYPE 0x01
 BEGIN
@@ -39,13 +36,13 @@ BEGIN
             VALUE "Comments",         "Seed Manager allows you to change the seed of the challenges used in Rayman® Legends.\0"
             VALUE "CompanyName",      "RLM Team\0"
             VALUE "FileDescription",  "Seed Manager, by Olybri\0"
-            VALUE "FileVersion",      "0.0.1.1\0"
+            VALUE "FileVersion",      "0.1.0.0\0"
             VALUE "InternalName",     "Seed Manager\0"
             VALUE "LegalCopyright",   "N/A\0"
             VALUE "LegalTrademarks",  "Rayman® Legends is a trademark of Ubisoft."
             VALUE "OriginalFilename", "seed_manager.exe\0"
             VALUE "ProductName",      "Seed Manager\0"
-            VALUE "ProductVersion",   "Beta 1.1.1\0"
+            VALUE "ProductVersion",   "1.0.0\0"
         END
     END
 

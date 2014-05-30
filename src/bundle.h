@@ -16,6 +16,7 @@ struct file_info
 class bundle
 {
     public:
+        bundle(void);
         bundle(const std::string& bundle_name);
         void open(const std::string& bundle_name);
 

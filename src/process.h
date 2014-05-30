@@ -23,15 +23,25 @@ enum {  DOJO,
         LOTLD,
         PIT,
         TOWER,
+        MURPHY,
         UNKNOWN_LEVEL };
 
 
-const std::string LEVEL_LIST[5] = {
-    "The Dojo",
-    "Land of the Livid Dead",
-    "The Neverending Pit",
-    "The Infinite Tower",
-    "Unknown"};
+const std::string LEVEL_LIST[6] = {
+    "Level: The Dojo",
+    "Level: Land of the Livid Dead",
+    "Level: The Neverending Pit",
+    "Level: The Infinite Tower",
+    "Level: Murphy's Dungeon",
+    "Level: Unknown"};
+
+/*const char* LEVEL_LIST[6] = {
+    "Level: The Dojo",
+    "Level: Land of the Livid Dead",
+    "Level: The Neverending Pit",
+    "Level: The Infinite Tower",
+    "Level: Murphy's Dungeon",
+    "Level: Unknown"};*/
 
 // CHALLENGE EVENT
 enum {  SPEED,
@@ -41,11 +51,18 @@ enum {  SPEED,
         UNKNOWN_EVENT };
 
 const std::string EVENT_LIST[5] = {
-    "Get there quickly!",
-    "Grab them quickly!",
-    "As far as you can!",
-    "Grab them quickly! (60\")",
-    "Unknown"};
+    "Event: Get there quickly!",
+    "Event: Grab them quickly!",
+    "Event: As far as you can!",
+    "Event: Grab them quickly! (60\")",
+    "Event: Unknown"};
+
+/*const char* EVENT_LIST[5] = {
+    "Event: Get there quickly!",
+    "Event: Grab them quickly!",
+    "Event: As far as you can!",
+    "Event: Grab them quickly! (60\")",
+    "Event: Unknown"};*/
 
 // CHALLENGE DIFFICULTY
 enum {  NORMAL,
@@ -53,9 +70,14 @@ enum {  NORMAL,
         UNKNOWN_DIFFICULTY };
 
 const std::string DIFFICULTY_LIST[5] = {
-    "Normal",
-    "Extreme",
-    "Unknown"};
+    "Difficulty: Normal",
+    "Difficulty: Extreme",
+    "Difficulty: Unknown"};
+
+/*const char* DIFFICULTY_LIST[5] = {
+    "Difficulty: Normal",
+    "Difficulty: Extreme",
+    "Difficulty: Unknown"};*/
 
 /****************************************/
 /// class process

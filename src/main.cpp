@@ -1,51 +1,347 @@
 #include "seed_manager.h"
-#include "jos/download.h"
-
 using namespace std;
 
-// HELPERS:
+// HELPERS
+void deactive_all(void);
+void active_all(void);
 void clear_screen(void);
-void wait(void);
 string get_bundle_path(void);
 void error_out(const string& str, bool _exit = false);
 void warning_out(const string& str, bool _exit = false);
-char ask_tshq(void);
-char ask_sgbhq(void);
-bool ask_yn(const string& str);
-void ask_pass(const string& str, const string& err);
-seed ask_seed(const string& str, const string& err);
-float ask_float(const string& str, const string& err);
-update_info check_for_update(const string& url);
+bool check_bundle(void);
 
-/****************************************/
-/// MAIN
-/****************************************/
+// MAIN
+void install_training_room_cb(Fl_Widget* widget, void*);
+void load_challenge_cb(Fl_Widget* widget, void*);
+void apply_changes_cb(Fl_Widget* widget, void*);
+void seed_input_cb(Fl_Widget* widget, void*);
+void goal_input_cb(Fl_Widget* widget, void*);
+void limit_input_cb(Fl_Widget* widget, void*);
 
-int main()
+Fl_Window window(WIDTH, HEIGHT, "Seed Manager");
+
+Fl_Button load_button(10,10,120,30,"Load challenge");
+Fl_Check_Button dojo_check(150,14,200,25,"Current challenge is a Dojo");
+
+Fl_Box level_box(10,44,200,30,"Level:");
+Fl_Box event_box(10,70,200,30,"Event:");
+
+Fl_Input seed_input(53,104,100,30,"Seed:");
+Fl_Box diff_box(180,104,200,30,"Difficulty:");
+
+Fl_Float_Input goal_input(53,136,60,30,"Goal: ");
+Fl_Box goal_type(114,136,60,30);
+Fl_Float_Input limit_input(248,136,60,30,"Time limit:");
+Fl_Box limit_type(310,136,60,30);
+
+Fl_Button change_button(10,186,120,30,"Apply changes");
+Fl_Check_Button training_check(150,190,160,25,"Enable training room");
+
+#if DEV_MODE
+Fl_Box dev_box(10,220,60,30,"Dev mode enabled");
+Fl_Check_Button console_check(150,220,120,30,"Show console");
+void console_show_cb(Fl_Widget* widget, void*)
 {
-    string bundle_path = BUNDLE_NAME;
-
-    #if DEV_MODE == 0
-    cout << "Checking for update...";
-    update_info update = check_for_update(UPDATE_URL);
-    if(update.available){
-        clrscr();
-        cout << "Update available!" << endl << "New version: " << update.version << endl;
-        if(ask_yn("Do you want to download it?")) system(("start " + update.url).c_str());
-        return 0;
+    Fl_Check_Button *console_check = (Fl_Check_Button*)widget;
+    if(console_check->value()){
+        ShowWindow(GetConsoleWindow(), SW_SHOWNA);
+        BringWindowToTop(GetActiveWindow());
     }
+    else ShowWindow(GetConsoleWindow(), SW_HIDE);
+}
+#endif
+
+StatusBar status_bar;
+string bundle_path = BUNDLE_NAME;
+bundle bund;
+challenge_type type;
+process proc;
+
+int main(int argc, char **argv)
+{
+    bool training_mode = check_bundle();
+    clear_screen();
+
+    // Window creation
+
+    string str = "Seed Manager version " + VERSION_STR;
+    status_bar.set(str.c_str());
+
+    load_button.callback(load_challenge_cb);
+
+    training_check.value(training_mode);
+    training_check.callback(install_training_room_cb);
+
+    change_button.callback(apply_changes_cb);
+
+    level_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
+    event_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
+    diff_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
+    goal_type.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
+    limit_type.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
+
+    seed_input.maximum_size(14);
+    seed_input.when(FL_WHEN_ENTER_KEY|FL_WHEN_RELEASE);
+    seed_input.callback(seed_input_cb);
+
+    goal_input.when(FL_WHEN_CHANGED);
+    goal_input.callback(goal_input_cb);
+
+    limit_input.when(FL_WHEN_CHANGED);
+    limit_input.callback(limit_input_cb);
+
+    #if DEV_MODE
+    dev_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
+    dev_box.labelcolor(84);
+    dev_box.labelfont(FL_BOLD);
+    console_check.labelcolor(84);
+    console_check.labelfont(FL_BOLD);
+    console_check.callback(console_show_cb);
+    console_check.value(true);
     #endif
 
-    bundle bund(bundle_path);
+    deactive_all();
 
-    /*cout << endl;
-    bund.seek("cache/itf_cooked/pc/world/home/level/home.isc.ckd", true);
-    bund.seek("cache/itf_cooked/pc/world/challenge/shaolinplaza/brick/challenge_shaolin_default_expert.isg.ckd", true);
-    bund.seek("cache/itf_cooked/pc/world/jungle/level/ju_rl_2_movingroots_inv/ju_rl_2_movingroots_inv.isc.ckd", true);
+    window.end();
+    window.show(argc, argv);
+
+    return(Fl::run());
+}
+
+/// /////////////////////////////////////////////////////////////////////////////////////////
+/// /////////////////////////////////////////////////////////////////////////////////////////
+
+// Callbacks
+seed cur_seed;
+string cur_goal;
+string cur_limit;
+void load_challenge_cb(Fl_Widget* widget, void*)
+{
+    load_button.deactivate();
+    dojo_check.deactivate();
+    training_check.deactivate();
+    deactive_all();
+
+    cout << endl;
+
+    proc.open(PROCESS_NAME);
+    if(!proc){
+        status_bar.set("Error!");
+        load_button.activate();
+        training_check.activate();
+        error_out(proc.get_last_error());
+        return;
+    }
+
+    int lvl;
+    if(dojo_check.value()) lvl = DOJO;
+    else lvl = UNKNOWN_LEVEL;
+    cur_seed = proc.get_seed(lvl);
+    if(!proc){
+        status_bar.set("Error!");
+        load_button.activate();
+        training_check.activate();
+        error_out(proc.get_last_error());
+        return;
+    }
+    seed_input.value(cur_seed.to_str().c_str());
+
+    if(lvl != DOJO){
+        type = proc.get_type(cur_seed);
+        if(!proc){
+            status_bar.set("Error!");
+            load_button.activate();
+            training_check.activate();
+            error_out(proc.get_last_error());
+            return;
+        }
+    }
+    else{
+        type.level = DOJO;
+        type.event = UNKNOWN_EVENT;
+        type.difficulty = UNKNOWN_DIFFICULTY;
+        type.distance = UNKNOWN_DISTANCE;
+        type.limit = UNKNOWN_LIMIT;
+    }
+    status_bar.set("Success!");
+    Fl::flush();
+
+    load_button.activate();
+    dojo_check.activate();
+    training_check.activate();
+    active_all();
+
+    level_box.label(LEVEL_LIST[type.level].c_str());
+
+    if(type.level != DOJO){
+        event_box.label(EVENT_LIST[type.event].c_str());
+        diff_box.label(DIFFICULTY_LIST[type.difficulty].c_str());
+    }
+    else{
+        event_box.label("Event: Unknown");
+        diff_box.label("Difficulty: Unknown");
+    }
+
+    if(type.event == DISTANCE){
+        goal_input.deactivate();
+        limit_input.deactivate();
+    }
+    else{
+    if(type.distance == UNKNOWN_DISTANCE) goal_input.value("Unknown");
+    else{
+            ostringstream goal;
+            goal << type.distance;
+            goal_input.value(goal.str().c_str());
+            cur_goal = goal.str();
+            if(type.event == SPEED) goal_type.label("m");
+            else goal_type.label("lums");
+            Fl::flush();
+        }
+        if(type.limit == UNKNOWN_LIMIT) limit_input.value("Unknown");
+        else{
+            ostringstream limit;
+            limit << type.limit;
+            limit_input.value(limit.str().c_str());
+            cur_limit = limit.str();
+            limit_type.label("sec");
+            Fl::flush();
+        }
+    }
+
+    if(type.level == DOJO){
+        event_box.deactivate();
+        diff_box.deactivate();
+        goal_input.deactivate();
+        limit_input.deactivate();
+    }
+}
+
+void install_training_room_cb(Fl_Widget* widget, void*)
+{
+    cout << endl;
+
+    bund.open(bundle_path);
+    if(!bund){
+        status_bar.set("Error!");
+        string error = bund.get_last_error();
+        error_out(error);
+        return;
+    }
+
+    if(training_check.value()){
+        status_bar.set("Installing the training room...");
+        Fl::flush();
+        bund.install_training_room();
+    }
+    else{
+        status_bar.set("Uninstalling the training room...");
+        Fl::flush();
+        bund.uninstall_training_room();
+    }
+    training_check.value(bund.check_training());
     bund.close();
-    wait(); exit(0);*/
+
+    if(!bund){
+        status_bar.set("Error!");
+        error_out(bund.get_last_error());
+    }
+    else status_bar.set("Success!");
+}
+
+void apply_changes_cb(Fl_Widget* widget, void*)
+{
+    cout << endl;
+    if(!training_check.value()){
+        warning_out("You must be playing in the training room to change the seed!");
+        #if !DEV_MODE
+        return;
+        #endif
+    }
+    seed new_seed(seed_input.value());
+    if(type.level != DOJO) proc.change_seed(new_seed);
+    else proc.change_seed_dojo(cur_seed, new_seed);
+    if(!proc){
+        error_out(proc.get_last_error());
+        return;
+    }
+    cur_seed = new_seed;
+    cout << "You need to restart the challenge to apply the changes." << endl;
+}
+
+void seed_input_cb(Fl_Widget* widget, void*)
+{
+    string value;
+    for(int i=0; i<strlen(seed_input.value()); i++)
+        if((seed_input.value()[i] < '0' || seed_input.value()[i] > '9') && (toupper(seed_input.value()[i]) < 'A' || toupper(seed_input.value()[i]) > 'F'))
+            continue;
+        else value += toupper(seed_input.value()[i]);
+
+    while(value.size() < 8) value = "0" + value;
+
+    string seed_str;
+    for(int i=0; i<8; i++){
+        seed_str += value[i];
+        if(i == 1 || i == 3 || i == 5) seed_str += ' ';
+    }
+    seed_input.value(seed_str.c_str());
+    if(seed_str != cur_seed.to_str()) seed_input.textcolor(FL_RED);
+    else seed_input.textcolor(FL_BLACK);
+}
+
+void goal_input_cb(Fl_Widget* widget, void*)
+{
+    if(cur_goal != goal_input.value()) goal_input.textcolor(FL_RED);
+    else goal_input.textcolor(FL_BLACK);
+}
+
+void limit_input_cb(Fl_Widget* widget, void*)
+{
+    if(cur_limit != limit_input.value()) limit_input.textcolor(FL_RED);
+    else limit_input.textcolor(FL_BLACK);
+}
 
 
+/// /////////////////////////////////////////////////////////////////////////////////////////
+/// /////////////////////////////////////////////////////////////////////////////////////////
+
+void deactive_all(void)
+{
+    level_box.deactivate();
+    event_box.deactivate();
+    seed_input.deactivate();
+    diff_box.deactivate();
+    goal_input.deactivate();
+    goal_type.deactivate();
+    limit_input.deactivate();
+    limit_type.deactivate();
+    change_button.deactivate();
+
+    level_box.label("Level:");
+    event_box.label("Event:");
+    seed_input.value("");
+    diff_box.label("Difficulty:");
+    goal_input.value("");
+    goal_type.label("");
+    limit_input.value("");
+    limit_type.label("");
+}
+
+void active_all(void)
+{
+    level_box.activate();
+    event_box.activate();
+    seed_input.activate();
+    diff_box.activate();
+    goal_input.activate();
+    goal_type.activate();
+    limit_input.activate();
+    limit_type.activate();
+    change_button.activate();
+}
+
+bool check_bundle(void)
+{
+    bund.open(bundle_path);
     if(!bund){
         if(bund.is_open) error_out(bund.get_last_error(), true);
         string error = bund.get_last_error();
@@ -75,13 +371,25 @@ int main()
             if(!bundle_path.size()){
                 clear_screen();
                 cout << "Cannot found the Bundle_PC..." << endl << "You will need to specify the path of the bundle." << endl;
-                ask_pass("Enter password", "Wrong password!");
+                const string pass = fl_password("Cannot found the Bundle_PC...\nYou will need to specify the path of the bundle.\nEnter password:");
+                bool correct = false;
+
+                if(pass.size() != PW.size()-1) correct = false;
+                else for(unsigned int i=0; i<PW.size()-1; i++)
+                    if(pass[i] != char(PW[i+1]-PW[0])){
+                        correct = false;
+                        break;
+                    }
+                    else correct = true;
+
+                if(!correct) error_out("Wrong password!", true);
+
 
                 char current_dir[FILENAME_MAX];
                 getcwd(current_dir, sizeof(current_dir));
 
                 bundle_path = get_bundle_path();
-                if(!bundle_path.size()) warning_out("No path specified...", true);
+                if(!bundle_path.size()) return 0;
                 bund.open(bundle_path);
                 if(!bund) error_out(bund.get_last_error(), true);
                 ofstream ofs((string(current_dir) + "\\Bundle_PC.path").c_str(), ios::binary);
@@ -96,265 +404,15 @@ int main()
         }
     }
     bool training_mode = bund.check_training();
-    bool dojomod_mode = bund.check_dojo_mod();
     bund.close();
 
-    int lol = 0;
-    for(;;)
-    {
-        clear_screen();
-
-        cout << "PRESS C  to load the current challenge seed." << endl;
-        #if DEV_MODE
-        textcolor(RED);
-        cout << "PRESS T  to install the training room." << endl;
-        textcolor(LIGHTGRAY);
-        #else
-        if(training_mode) cout << "PRESS T  to uninstall the training room." << endl;
-        else cout << "PRESS T  to install the training room." << endl;
-        #endif
-        /*cout << "PRESS U  to install ";
-        cout << "Ubi Ray";
-        cout << "." << endl;*/
-
-        if(!training_mode) textcolor(RED);
-        if(dojomod_mode) cout << "PRESS D  to uninstall modded Dojo (for the tournament)." << endl;
-        else cout << "PRESS D  to install modded Dojo (for the tournament)." << endl;
-        textcolor(LIGHTGRAY);
-
-        cout << endl;
-
-        cout << "PRESS H  for help." << endl;
-        cout << "PRESS Q  to quit the program." << endl;
-
-        switch(ask_tshq())
-        {
-            #if DEV_MODE == 0
-            case 'T':{
-                cout << endl;
-
-                bund.open(bundle_path);
-                if(!bund){
-                    string error = bund.get_last_error();
-                    error_out(error);
-                    continue;
-                }
-
-                if(training_mode) bund.uninstall_training_room();
-                else bund.install_training_room();
-                training_mode = bund.check_training();
-                if(!training_mode && dojomod_mode) bund.uninstall_dojo_mod();
-                dojomod_mode = bund.check_dojo_mod();
-                bund.close();
-
-                if(!bund){ error_out(bund.get_last_error()); continue; }
-
-                wait();
-                continue;}
-            #endif
-
-            case 'D':{
-                cout << endl;
-
-                bund.open(bundle_path);
-                if(!bund){
-                    string error = bund.get_last_error();
-                    error_out(error);
-                    continue;
-                }
-
-                if(dojomod_mode) bund.uninstall_dojo_mod();
-                else bund.install_dojo_mod();
-                dojomod_mode = bund.check_dojo_mod();
-                bund.close();
-
-                if(!bund){ error_out(bund.get_last_error()); continue; }
-
-                wait();
-                continue;}
-
-            case 'C':
-                cout << endl;
-                {
-                    process proc(PROCESS_NAME);
-                    if(!proc){ error_out(proc.get_last_error()); continue; }
-
-                    int level;
-                    if(ask_yn("Is the current challenge a dojo?") == YES) level = DOJO;
-                    else level = UNKNOWN_LEVEL;
-                    seed cur_seed = proc.get_seed(level);
-                    if(!proc){ error_out(proc.get_last_error()); continue; }
-
-                    challenge_type type;
-                    if(level != DOJO){
-                        type = proc.get_type(cur_seed);
-                        if(!proc){ error_out(proc.get_last_error()); continue; }
-                    }
-                    else{
-                        type.level = DOJO;
-                        type.event = UNKNOWN_EVENT;
-                        type.difficulty = UNKNOWN_DIFFICULTY;
-                        type.distance = UNKNOWN_DISTANCE;
-                        type.limit = UNKNOWN_LIMIT;
-                    }
-
-                    Sleep(1400);
-                    //wait();
-
-                    //////////////////////////
-
-                    bool loop = true;
-
-                    while(loop)
-                    {
-                        clear_screen();
-
-                        cout << "Challenge loaded: " << endl << LEVEL_LIST[type.level] << endl;
-                        cout << " Event: " << EVENT_LIST[type.event] << endl;
-                        cout << " Seed: " << cur_seed.to_str() << endl;
-                        if(type.distance == UNKNOWN_DISTANCE) cout << " Goal: Unknow" << endl;
-                        else if(type.event == SPEED && type.distance < 10000) cout << " Goal: " << type.distance << " m" << endl;
-                        else if(type.event == SPEED) cout << " Goal: " << type.distance/1000 << " km" << endl;
-                        else if(type.event == LUMS) cout << " Goal: " << type.distance << " lums" << endl;
-                        cout << " Difficulty: " << DIFFICULTY_LIST[type.difficulty] << endl;
-                        if(type.limit == UNKNOWN_LIMIT) cout << " Time limit: Unknow" << endl;
-                        else if(type.event == DISTANCE) cout << " Time limit: Unlimited" << endl;
-                        else cout << " Time limit: " << dec << int(type.limit/60.0) << "'" << setw(2) << setfill('0') << int(type.limit)%60 << "\"" << setw(2) << setfill('0') << int(type.limit*100.0)%100 << endl;
-
-                        cout << endl;
-
-                        bund.open(bundle_path);
-                        if(!bund){
-                            string error = bund.get_last_error();
-                            error_out(error);
-                            continue;
-                        }
-                        bool training = bund.check_training();
-                        bund.close();
-
-                        if(!training) textcolor(RED);
-                        cout << "PRESS S  to change the seed." << endl;
-                        if((type.event == SPEED || type.event == LUMS) && (type.level != DOJO && type.level != UNKNOWN_LEVEL)){
-                            cout << "PRESS G  to change the goal." << endl;
-                            cout << "PRESS L  to change the time limit." << endl;
-                        }
-                        if(!training) textcolor(LIGHTGRAY);
-                        cout << "PRESS B  to go back to menu." << endl;
-                        cout << endl;
-                        cout << "PRESS H  for help." << endl;
-                        cout << "PRESS Q  to quit the program." << endl;
-
-                        switch(ask_sgbhq())
-                        {
-                            case 'S':
-                                if(type.level == UNKNOWN_LEVEL) continue;
-                                cout << endl;
-                                {
-                                    if(!training){
-                                        warning_out("You must be playing in the training room to change the seed!");
-                                        continue;
-                                    }
-                                    seed new_seed = ask_seed("Enter new seed", "Invalid seed!");
-                                    if(type.level != DOJO) proc.change_seed(new_seed);
-                                    else proc.change_seed_dojo(cur_seed, new_seed);
-                                    if(!proc){ error_out(proc.get_last_error()); continue; }
-                                    cur_seed = new_seed;
-                                    cout << "You need to restart the challenge to apply the changes." << endl;
-                                }
-                                wait();
-                                continue;
-
-                            case 'L':
-                                if((type.event != SPEED && type.event != LUMS) || type.level == DOJO || type.level == UNKNOWN_LEVEL) continue;
-                                cout << endl;
-                                {
-                                    if(!training){
-                                        warning_out("You must be playing in the training room to change the time limit!");
-                                        continue;
-                                    }
-                                    float limit = ask_float("Enter new time limit (seconds)", "Invalid number!");
-                                    proc.change_limit(limit);
-                                    if(!proc){ error_out(proc.get_last_error()); continue; }
-                                    type.limit = limit;
-                                }
-                                wait();
-                                continue;
-
-                            case 'G':
-                                if((type.event != SPEED && type.event != LUMS) || type.level == DOJO || type.level == UNKNOWN_LEVEL) continue;
-                                cout << endl;
-                                {
-                                    if(!training){
-                                        warning_out("You must be playing in the training room to change the goal!");
-                                        continue;
-                                    }
-                                    float distance;
-                                    if(type.event == SPEED) distance = ask_float("Enter new goal (meters)", "Invalid number!");
-                                    else distance = ask_float("Enter new goal (lums)", "Invalid number!");
-                                    proc.change_distance(distance);
-                                    if(!proc){ error_out(proc.get_last_error()); continue; }
-                                    type.distance = distance;
-                                }
-                                wait();
-                                continue;
-
-                            case 'B':
-                                loop = false;
-                                continue;
-
-                            case 'H':
-                                system("start readme.txt");
-                                continue;
-
-                            case 'Q':
-                                return 0;
-                        }
-                    }
-                }
-                continue;
-
-            case 'H':
-                system("start readme.txt");
-                continue;
-
-            case 'Q':
-                return 0;
-
-            case 'U':
-                switch(lol){
-                    case 0: MessageBoxW(0,L"lol nope ( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_OK); break;
-                    case 1: MessageBoxW(0,L"I said: \"lol nope\" ( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_OK); break;
-                    case 2: MessageBoxW(0,L"Again: \"lol nope\" ( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_OK); break;
-                    case 3: MessageBoxW(0,L"Stop that, or the program will... crash ( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_OK); break;
-                    case 4: MessageBoxW(0,L"CRASH ( ͡° ͜ʖ ͡°) ( ͡° ͜ʖ ͡°) ( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_OK); *((unsigned int*)0) = 0xdead; break;
-                }
-
-                ++lol;
-                continue;
-
-                /*
-                if(MessageBoxW(0,L"You sure wanna install Ubi Ray? ( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_YESNO) == IDNO) continue;
-                if(MessageBoxW(0,L"Really? ( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_YESNO) == IDNO) continue;
-                if(MessageBoxW(0,L"Really sure? ( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_YESNO) == IDNO) continue;
-                if(MessageBoxW(0,L"Is that a good idea? ( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_YESNO) == IDNO) continue;
-                if(MessageBoxW(0,L"Really? ( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_YESNO) == IDNO) continue;
-                if(MessageBoxW(0,L"Really sure? ( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_YESNO) == IDNO) continue;
-                if(MessageBoxW(0,L"( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°) ?",L"( ͡° ͜ʖ ͡°)",MB_YESNO) == IDNO) continue;
-                if(MessageBoxW(0,L"Is the program going to crash? ( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",MB_YESNO) == IDNO) continue;
-                if(MessageBoxW(0,L"The program is going to crash. Cheers.\n( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)\n( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)( ͡° ͜ʖ ͡°)",L"( ͡° ͜ʖ ͡°)",0) == IDNO) continue;
-                *((unsigned int*)0) = 0xDEAD;
-                */
-        }
-    }
+    return training_mode;
 }
-
-/// /////////////////////////////////////////////////////////////////////////////////////////
-/// /////////////////////////////////////////////////////////////////////////////////////////
 
 void clear_screen(void)
 {
     clrscr();
-    cout << "= SEED MANAGER =" << endl << "by Olybri (" << VERSION_STR << ")" << endl;
+    cout << "= SEED MANAGER =" << endl << "by Olybri (v" << VERSION_STR << ")" << endl;
     #if DEV_MODE
     textcolor(BROWN);
     cout << "Build number: #" << setw(4) << setfill('0') << BUILD << " (Developer mode)" << endl;
@@ -363,41 +421,24 @@ void clear_screen(void)
     cout << endl;
 }
 
-void wait(void)
-{
-    cout << "Press any key...";
-    getch();
-}
-
 string get_bundle_path(void)
 {
-    OPENFILENAMEA ofn;
+    Fl_Native_File_Chooser native;
+    native.title("Where is Bundle_PC.ipk?");
+    native.type(Fl_Native_File_Chooser::BROWSE_FILE);
+    native.filter("Itsy Package\t*.ipk\nAll\t*.*}\n");
+    native.preset_file("Bundle_PC.ipk");
 
-    char file[1000] = {"Bundle_PC.ipk"};
-    ofn.lStructSize = sizeof(OPENFILENAME);
-    ofn.hwndOwner = GetActiveWindow();
-    ofn.hInstance = 0;
-    ofn.lpstrFilter = "Itsy Package (*.ipk)\0*.ipk\0All Files (*.*)\0*.*\0\0";
-    ofn.lpstrCustomFilter = 0;
-    ofn.nMaxCustFilter = 0;
-    ofn.nFilterIndex = 1;
-    ofn.lpstrFile = file;
-    ofn.nMaxFile = 1000;
-    ofn.lpstrTitle = "Where is Bundle_PC.ipk?";
-    ofn.nMaxFileTitle = 0;
-    ofn.lpstrInitialDir = 0;
-    ofn.Flags = OFN_FILEMUSTEXIST | OFN_LONGNAMES | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
-    ofn.nFileOffset = 0;
-    ofn.nFileExtension = 0;
-    ofn.lpstrDefExt = "ipk";
-    ofn.lCustData = 0;
-    ofn.lpfnHook = 0;
-    ofn.lpTemplateName = 0;
+    switch(native.show())
+    {
+        case -1:	// ERROR
+        case  1: return ""; break;		// CANCEL
+        default: 								// PICKED FILE
+            if(native.filename()) return native.filename();
+            else return "";
+    }
 
-
-    if(!GetOpenFileName(&ofn))
-        return "";
-    return ofn.lpstrFile;
+    return "";
 }
 
 void error_out(const string& str, bool _exit)
@@ -405,7 +446,7 @@ void error_out(const string& str, bool _exit)
     textcolor(LIGHTRED);
     cout << endl << "ERROR: " << str << endl;
     textcolor(LIGHTGRAY);
-    wait();
+    MessageBox(0, str.c_str(), "Error", MB_ICONERROR);
     if(_exit) exit(0);
 }
 
@@ -414,222 +455,6 @@ void warning_out(const string& str, bool _exit)
     textcolor(CYAN);
     cout << endl << "WARNING: " << str << endl;
     textcolor(LIGHTGRAY);
-    wait();
+    MessageBox(0, str.c_str(), "Warning", MB_ICONWARNING);
     if(_exit) exit(0);
-}
-
-char ask_tshq(void)
-{
-    char c = 0;
-    while(c != 'T' && c != 'C' && c != 'H' && c != 'Q' && c != 'D')
-        c = toupper(getch());
-
-    return c;
-}
-
-char ask_sgbhq(void)
-{
-    char c = 0;
-    while(c != 'S' && c != 'G' && c != 'L' && c != 'H' && c != 'Q' && c != 'B')
-        c = toupper(getch());
-
-    return c;
-}
-
-bool ask_yn(const string& str)
-{
-    cout << str << " (Y/N): ";
-
-    char c = 0;
-    while(c != 'Y' && c != 'N')
-        c = toupper(getch());
-
-    cout << c << endl;
-
-    if(c == 'Y' || c == 'y') return YES;
-    return NO;
-}
-
-void ask_pass(const string& str, const string& err)
-{
-    cout << str << ": ";
-
-    string pass;
-    bool correct = false;
-
-    while(!correct)
-    {
-        getline(cin, pass);
-        for(unsigned int i=0; i<PW.size()-1; i++)
-        if(pass[i] != char(PW[i+1]-PW[0])){
-            correct = false;
-            break;
-        }
-        else correct = true;
-
-        if(!correct){
-            textcolor(LIGHTRED);
-            cout << err;
-            Sleep(120);
-            gotoxy(1,wherey());
-            textcolor(YELLOW);
-            cout << err;
-            Sleep(120);
-            gotoxy(1,wherey());
-            textcolor(LIGHTRED);
-            cout << err;
-            Sleep(120);
-            gotoxy(1,wherey());
-            textcolor(YELLOW);
-            cout << err;
-
-            textcolor(LIGHTGRAY);
-            gotoxy(1,wherey()-1);
-            cout << str << ": ";
-            for(unsigned int i=0; i<pass.size(); i++) cout << " ";
-            gotoxy(1,wherey());
-            cout << str << ": ";
-        }
-    }
-    for(unsigned int i=0; i<err.size(); i++) cout << " ";
-    gotoxy(1,wherey());
-}
-
-seed ask_seed(const string& str, const string& err)
-{
-    cout << str << ": ";
-
-    string seed_str;
-    bool correct = false;
-
-    while(!correct)
-    {
-        getline(cin, seed_str);
-        correct = true;
-        int size = seed_str.size();
-        if(!size) correct = false;
-        else for(unsigned int i=0; i<seed_str.size(); i++){
-            if(seed_str[i] == ' ') seed_str.erase(i,1);
-            if(seed_str[i] < '0' || seed_str[i] > '9')
-                if(seed_str[i] < 'A' || seed_str[i] > 'F')
-                    if(seed_str[i] < 'a' || seed_str[i] > 'f'){
-                        correct = false;
-                        break;
-                    }
-        }
-        if(seed_str.size() != 8) correct = false;
-        if(!correct){
-            textcolor(LIGHTRED);
-            cout << err;
-            Sleep(120);
-            gotoxy(1,wherey());
-            textcolor(YELLOW);
-            cout << err;
-            Sleep(120);
-            gotoxy(1,wherey());
-            textcolor(LIGHTRED);
-            cout << err;
-            Sleep(120);
-            gotoxy(1,wherey());
-            textcolor(YELLOW);
-            cout << err;
-
-            textcolor(LIGHTGRAY);
-            gotoxy(1,wherey()-1);
-            cout << str << ": ";
-            for(int i=0; i<size; i++) cout << " ";
-            gotoxy(1,wherey());
-            cout << str << ": ";
-        }
-    }
-
-    return seed(seed_str);
-}
-
-float ask_float(const string& str, const string& err)
-{
-    cout << str << ": ";
-
-    string float_str;
-    bool correct = false;
-
-    while(!correct)
-    {
-        getline(cin, float_str);
-        correct = true;
-        int size = float_str.size();
-        if(!size) correct = false;
-        else for(unsigned int i=0; i<float_str.size(); i++){
-            if(float_str[i] == ' ') float_str.erase(i,1);
-            if(float_str[i] < '.' || float_str[i] > '9' || float_str[i] == '/'){
-                correct = false;
-                break;
-            }
-        }
-        if(!correct){
-            textcolor(LIGHTRED);
-            cout << err;
-            Sleep(120);
-            gotoxy(1,wherey());
-            textcolor(YELLOW);
-            cout << err;
-            Sleep(120);
-            gotoxy(1,wherey());
-            textcolor(LIGHTRED);
-            cout << err;
-            Sleep(120);
-            gotoxy(1,wherey());
-            textcolor(YELLOW);
-            cout << err;
-
-            textcolor(LIGHTGRAY);
-            gotoxy(1,wherey()-1);
-            cout << str << ": ";
-            for(int i=0; i<size; i++) cout << " ";
-            gotoxy(1,wherey());
-            cout << str << ": ";
-        }
-    }
-
-    istringstream istr(float_str);
-    float f;
-    istr >> f;
-
-    return f;
-}
-
-
-update_info check_for_update(const string& url)
-{
-    update_info update;
-    update.available = false;
-
-    vector<uint8_t> vec;
-    try{ vec = Download::download(url.c_str(), true, NULL); }
-    catch(DLExc exc){
-        cout << endl << "Could not get update informations!";
-        Sleep(1400);
-        return update;
-    }
-
-    if(!vec.size()) return update;
-
-    stringstream sstr;
-    for(unsigned int i=0; i<vec.size(); i++) sstr << vec[i];
-
-    int version;
-    string version_str, dl_url;
-    sstr >> version >> version_str >> dl_url;
-
-    update.available = (BUILD < version);
-
-    if(update.available){
-        for(unsigned int i=0; i<version_str.size(); i++)
-            if(version_str[i] == '_') version_str[i] = ' ';
-        update.version = version_str;
-        update.url = dl_url;
-        return update;
-    }
-
-    return update;
 }
