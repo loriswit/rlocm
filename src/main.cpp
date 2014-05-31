@@ -4,7 +4,6 @@ using namespace std;
 // HELPERS
 void deactive_all(void);
 void active_all(void);
-void clear_screen(void);
 string get_bundle_path(void);
 void error_out(const string& str, bool _exit = false);
 void warning_out(const string& str, bool _exit = false);
@@ -14,28 +13,32 @@ bool check_bundle(void);
 void install_training_room_cb(Fl_Widget* widget, void*);
 void load_challenge_cb(Fl_Widget* widget, void*);
 void apply_changes_cb(Fl_Widget* widget, void*);
+void reset_changes_cb(Fl_Widget* widget, void*);
 void seed_input_cb(Fl_Widget* widget, void*);
+void random_seed_cb(Fl_Widget* widget, void*);
 void goal_input_cb(Fl_Widget* widget, void*);
 void limit_input_cb(Fl_Widget* widget, void*);
 
 Fl_Window window(WIDTH, HEIGHT, "Seed Manager");
 
 Fl_Button load_button(10,10,120,30,"Load challenge");
-Fl_Check_Button dojo_check(150,14,200,25,"Current challenge is a Dojo");
+Fl_Check_Button dojo_check(150,14,210,25,"Current challenge is the Dojo");
 
 Fl_Box level_box(10,44,200,30,"Level:");
 Fl_Box event_box(10,70,200,30,"Event:");
+Fl_Box diff_box(190,70,200,30,"Difficulty:");
 
 Fl_Input seed_input(53,104,100,30,"Seed:");
-Fl_Box diff_box(180,104,200,30,"Difficulty:");
+Fl_Button random_button(180,102,100,30,"Random seed");
 
-Fl_Float_Input goal_input(53,136,60,30,"Goal: ");
-Fl_Box goal_type(114,136,60,30);
-Fl_Float_Input limit_input(248,136,60,30,"Time limit:");
-Fl_Box limit_type(310,136,60,30);
+Fl_Float_Input goal_input(53,140,80,30,"Goal: ");
+Fl_Box goal_type(134,140,60,30);
+Fl_Float_Input limit_input(258,140,80,30,"Time limit:");
+Fl_Box limit_type(340,140,60,30);
 
-Fl_Button change_button(10,186,120,30,"Apply changes");
-Fl_Check_Button training_check(150,190,160,25,"Enable training room");
+Fl_Button change_button(10,186,110,30,"Apply changes");
+Fl_Button reset_button(130,186,60,30,"Reset");
+Fl_Check_Button training_check(210,190,160,25,"Enable training room");
 
 #if DEV_MODE
 Fl_Box dev_box(10,220,60,30,"Dev mode enabled");
@@ -55,14 +58,22 @@ StatusBar status_bar;
 string bundle_path = BUNDLE_NAME;
 bundle bund;
 challenge_type type;
-process proc;
 
 int main(int argc, char **argv)
 {
     bool training_mode = check_bundle();
-    clear_screen();
+    clrscr();
+    cout << "= SEED MANAGER =" << endl << "by Olybri (v" << VERSION_STR << ")" << endl;
+    #if DEV_MODE
+    textcolor(BROWN);
+    cout << "Build number: #" << setw(4) << setfill('0') << BUILD << " (Developer mode)" << endl;
+    textcolor(LIGHTGRAY);
+    #endif
+    cout << endl;
 
     // Window creation
+
+    window.color(FL_DARK2);
 
     string str = "Seed Manager version " + VERSION_STR;
     status_bar.set(str.c_str());
@@ -72,8 +83,6 @@ int main(int argc, char **argv)
     training_check.value(training_mode);
     training_check.callback(install_training_room_cb);
 
-    change_button.callback(apply_changes_cb);
-
     level_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
     event_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
     diff_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
@@ -82,13 +91,20 @@ int main(int argc, char **argv)
 
     seed_input.maximum_size(14);
     seed_input.when(FL_WHEN_ENTER_KEY|FL_WHEN_RELEASE);
+    //seed_input.when(FL_WHEN_ENTER_KEY|FL_WHEN_RELEASE);
     seed_input.callback(seed_input_cb);
+
+    srand(time(NULL));
+    random_button.callback(random_seed_cb);
 
     goal_input.when(FL_WHEN_CHANGED);
     goal_input.callback(goal_input_cb);
 
     limit_input.when(FL_WHEN_CHANGED);
     limit_input.callback(limit_input_cb);
+
+    change_button.callback(apply_changes_cb);
+    reset_button.callback(reset_changes_cb);
 
     #if DEV_MODE
     dev_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
@@ -112,9 +128,44 @@ int main(int argc, char **argv)
 /// /////////////////////////////////////////////////////////////////////////////////////////
 
 // Callbacks
+process proc;
 seed cur_seed;
 string cur_goal;
 string cur_limit;
+
+float str_to_float(const string& float_str)
+{
+    istringstream istr(float_str);
+    float f;
+    istr >> f;
+
+    return f;
+}
+
+void update_change_button(void)
+{
+    if(goal_input.active()){
+        if(seed_input.value() == cur_seed.to_str() && str_to_float(cur_goal) == str_to_float(goal_input.value()) && str_to_float(cur_limit) == str_to_float(limit_input.value())){
+            change_button.deactivate();
+            reset_button.deactivate();
+        }
+        else{
+            change_button.activate();
+            reset_button.activate();
+        }
+    }
+    else{
+        if(seed_input.value() == cur_seed.to_str()){
+            change_button.deactivate();
+            reset_button.deactivate();
+        }
+        else{
+            change_button.activate();
+            reset_button.activate();
+        }
+    }
+}
+
 void load_challenge_cb(Fl_Widget* widget, void*)
 {
     load_button.deactivate();
@@ -129,7 +180,9 @@ void load_challenge_cb(Fl_Widget* widget, void*)
         status_bar.set("Error!");
         load_button.activate();
         training_check.activate();
+        dojo_check.activate();
         error_out(proc.get_last_error());
+        proc.reset();
         return;
     }
 
@@ -141,7 +194,9 @@ void load_challenge_cb(Fl_Widget* widget, void*)
         status_bar.set("Error!");
         load_button.activate();
         training_check.activate();
+        dojo_check.activate();
         error_out(proc.get_last_error());
+        proc.reset();
         return;
     }
     seed_input.value(cur_seed.to_str().c_str());
@@ -152,7 +207,9 @@ void load_challenge_cb(Fl_Widget* widget, void*)
             status_bar.set("Error!");
             load_button.activate();
             training_check.activate();
+            dojo_check.activate();
             error_out(proc.get_last_error());
+            proc.reset();
             return;
         }
     }
@@ -178,8 +235,8 @@ void load_challenge_cb(Fl_Widget* widget, void*)
         diff_box.label(DIFFICULTY_LIST[type.difficulty].c_str());
     }
     else{
-        event_box.label("Event: Unknown");
-        diff_box.label("Difficulty: Unknown");
+        event_box.label(EVENT_LIST[4].c_str());
+        diff_box.label(DIFFICULTY_LIST[2].c_str());
     }
 
     if(type.event == DISTANCE){
@@ -214,6 +271,8 @@ void load_challenge_cb(Fl_Widget* widget, void*)
         goal_input.deactivate();
         limit_input.deactivate();
     }
+
+    update_change_button();
 }
 
 void install_training_room_cb(Fl_Widget* widget, void*)
@@ -250,22 +309,92 @@ void install_training_room_cb(Fl_Widget* widget, void*)
 
 void apply_changes_cb(Fl_Widget* widget, void*)
 {
-    cout << endl;
+    status_bar.set("Applying changes...");
+    Fl::flush();
     if(!training_check.value()){
-        warning_out("You must be playing in the training room to change the seed!");
         #if !DEV_MODE
+        warning_out("You must be playing in the training room to apply changes!");
+        status_bar.set("Error!");
         return;
+        #else
+        textcolor(CYAN);
+        cout << endl << "WARNING: You're not playing in the training room!";
+        textcolor(LIGHTGRAY);
         #endif
     }
-    seed new_seed(seed_input.value());
-    if(type.level != DOJO) proc.change_seed(new_seed);
-    else proc.change_seed_dojo(cur_seed, new_seed);
-    if(!proc){
-        error_out(proc.get_last_error());
-        return;
+
+    bool seed_changed = false;
+    if(seed_input.value() != cur_seed.to_str()){
+        cout << endl;
+        seed new_seed(seed_input.value());
+        if(type.level != DOJO) proc.change_seed(new_seed);
+        else proc.change_seed_dojo(cur_seed, new_seed);
+        if(!proc){
+            error_out(proc.get_last_error());
+            status_bar.set("Error!");
+            return;
+        }
+        cur_seed = new_seed;
+        seed_input.textcolor(FL_BLACK);
+        seed_input.redraw();
+        cout << "You need to restart the challenge to apply the changes." << endl;
+        seed_changed = true;
     }
-    cur_seed = new_seed;
-    cout << "You need to restart the challenge to apply the changes." << endl;
+
+    if(goal_input.active() && str_to_float(cur_goal) != str_to_float(goal_input.value())){
+        cout << endl;
+        float distance = str_to_float(goal_input.value());
+        proc.change_distance(distance);
+        if(!proc){
+            error_out(proc.get_last_error());
+            status_bar.set("Error!");
+            return;
+        }
+        type.distance = distance;
+        cur_goal = goal_input.value();
+        goal_input.textcolor(FL_BLACK);
+        goal_input.redraw();
+    }
+
+    if(limit_input.active() && str_to_float(cur_limit) != str_to_float(limit_input.value())){
+        cout << endl;
+        float limit = str_to_float(limit_input.value());
+        proc.change_limit(limit);
+        if(!proc){
+            error_out(proc.get_last_error());
+            status_bar.set("Error!");
+            return;
+        }
+        type.limit = limit;
+        cur_limit = limit_input.value();
+        limit_input.textcolor(FL_BLACK);
+        limit_input.redraw();
+    }
+
+    if(seed_changed) status_bar.set("Changes saved! You need to restart the challenge.");
+    else status_bar.set("Changes saved!");
+    update_change_button();
+}
+
+void reset_changes_cb(Fl_Widget* widget, void*)
+{
+    seed_input.value(cur_seed.to_str().c_str());
+    seed_input.textcolor(FL_BLACK);
+    seed_input.redraw();
+
+    if(goal_input.active()){
+        goal_input.value(cur_goal.c_str());
+        goal_input.textcolor(FL_BLACK);
+        goal_input.redraw();
+    }
+
+    if(limit_input.active()){
+        limit_input.value(cur_limit.c_str());
+        limit_input.textcolor(FL_BLACK);
+        limit_input.redraw();
+    }
+
+    update_change_button();
 }
 
 void seed_input_cb(Fl_Widget* widget, void*)
@@ -286,18 +415,38 @@ void seed_input_cb(Fl_Widget* widget, void*)
     seed_input.value(seed_str.c_str());
     if(seed_str != cur_seed.to_str()) seed_input.textcolor(FL_RED);
     else seed_input.textcolor(FL_BLACK);
+    update_change_button();
+    status_bar.clear();
+}
+
+void random_seed_cb(Fl_Widget* widget, void*)
+{
+    uint8_t c[4];
+    for(int i=0; i<4; i++) c[i] = rand() % 0x100;
+    if(c[3] == 0) c[3]++;
+    seed_input.value(seed(c[0], c[1], c[2], c[3]).to_str().c_str());
+    if(seed_input.value() != cur_seed.to_str()) seed_input.textcolor(FL_RED);
+    else seed_input.textcolor(FL_BLACK);
+    update_change_button();
+    status_bar.clear();
 }
 
 void goal_input_cb(Fl_Widget* widget, void*)
 {
-    if(cur_goal != goal_input.value()) goal_input.textcolor(FL_RED);
+    if(str_to_float(cur_goal) != str_to_float(goal_input.value())) goal_input.textcolor(FL_RED);
     else goal_input.textcolor(FL_BLACK);
+    goal_input.redraw();
+    update_change_button();
+    status_bar.clear();
 }
 
 void limit_input_cb(Fl_Widget* widget, void*)
 {
-    if(cur_limit != limit_input.value()) limit_input.textcolor(FL_RED);
+    if(str_to_float(cur_limit) != str_to_float(limit_input.value())) limit_input.textcolor(FL_RED);
     else limit_input.textcolor(FL_BLACK);
+    limit_input.redraw();
+    update_change_button();
+    status_bar.clear();
 }
 
 
@@ -309,17 +458,19 @@ void deactive_all(void)
     level_box.deactivate();
     event_box.deactivate();
     seed_input.deactivate();
+    random_button.deactivate();
     diff_box.deactivate();
     goal_input.deactivate();
     goal_type.deactivate();
     limit_input.deactivate();
     limit_type.deactivate();
     change_button.deactivate();
+    reset_button.deactivate();
 
     level_box.label("Level:");
     event_box.label("Event:");
     seed_input.value("");
-    diff_box.label("Difficulty:");
+    diff_box.label("");
     goal_input.value("");
     goal_type.label("");
     limit_input.value("");
@@ -331,12 +482,14 @@ void active_all(void)
     level_box.activate();
     event_box.activate();
     seed_input.activate();
+    random_button.activate();
     diff_box.activate();
     goal_input.activate();
     goal_type.activate();
     limit_input.activate();
     limit_type.activate();
     change_button.activate();
+    reset_button.activate();
 }
 
 bool check_bundle(void)
@@ -369,7 +522,6 @@ bool check_bundle(void)
             }
 
             if(!bundle_path.size()){
-                clear_screen();
                 cout << "Cannot found the Bundle_PC..." << endl << "You will need to specify the path of the bundle." << endl;
                 const string pass = fl_password("Cannot found the Bundle_PC...\nYou will need to specify the path of the bundle.\nEnter password:");
                 bool correct = false;
@@ -407,18 +559,6 @@ bool check_bundle(void)
     bund.close();
 
     return training_mode;
-}
-
-void clear_screen(void)
-{
-    clrscr();
-    cout << "= SEED MANAGER =" << endl << "by Olybri (v" << VERSION_STR << ")" << endl;
-    #if DEV_MODE
-    textcolor(BROWN);
-    cout << "Build number: #" << setw(4) << setfill('0') << BUILD << " (Developer mode)" << endl;
-    textcolor(LIGHTGRAY);
-    #endif
-    cout << endl;
 }
 
 string get_bundle_path(void)

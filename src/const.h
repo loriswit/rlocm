@@ -24,6 +24,7 @@
 #include <vector>
 
 #include <windows.h>
+#include <time.h>
 #include <dirent.h>
 //#include <sys/stat.h>
 #include <conio2.h>
@@ -55,10 +56,10 @@
 
 #define CHALLENGE_SHAOLIN_EXPERT        121
 
-#define DEV_MODE     TRUE    // DO NOT MODIFY
+#define DEV_MODE     FALSE    // DO NOT MODIFY
 
 // Window size
-const int WIDTH = 360;
+const int WIDTH = 375;
 #if !DEV_MODE
 const int HEIGHT = 250;
 #else
@@ -69,6 +70,7 @@ class StatusBar : public Fl_Box
 {
     public:
         StatusBar(void) : Fl_Box(-1, HEIGHT-25, WIDTH+2, 26){
+            color(FL_DARK1);
             align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
             box(FL_BORDER_BOX);
         }
@@ -83,7 +85,7 @@ struct update_info
     std::string url;
 };
 
-const int BUILD = 8;
+const int BUILD = 9;
 //const std::string VERSION = "0.0.1.1";
 const std::string VERSION_STR = "1.0.0";
 const std::string UPDATE_URL = "https://dl.dropboxusercontent.com/u/109130039/seed-manager.com/update?dl=1";

@@ -295,6 +295,7 @@ challenge_type process::get_type(seed cur_seed)
         s.set(i, byte);
     }
     if(s.to_str() != cur_seed.to_str()){
+        cout << endl << "CORRUPTED at 0x" << hex << location-0x5F8 << ": " << s.to_str() << endl << "cur_seed: " << cur_seed.to_str() << endl;
         last_error = "Seed might be corrupted...";
         success = false;
         return type;
@@ -666,6 +667,13 @@ bool process::change_limit(float limit)
     cout << "Success!" << endl;
     cout << "Time limit has been changed successfully!" << endl;
     return true;
+}
+
+void process::reset(void)
+{
+    success = true;
+    location = 0;
+    location_2 = 0;
 }
 
 

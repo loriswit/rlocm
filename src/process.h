@@ -32,7 +32,7 @@ const std::string LEVEL_LIST[6] = {
     "Level: Land of the Livid Dead",
     "Level: The Neverending Pit",
     "Level: The Infinite Tower",
-    "Level: Murphy's Dungeon",
+    "Level: Murfy's Dungeon",
     "Level: Unknown"};
 
 /*const char* LEVEL_LIST[6] = {
@@ -72,7 +72,7 @@ enum {  NORMAL,
 const std::string DIFFICULTY_LIST[5] = {
     "Difficulty: Normal",
     "Difficulty: Extreme",
-    "Difficulty: Unknown"};
+    " "};
 
 /*const char* DIFFICULTY_LIST[5] = {
     "Difficulty: Normal",
@@ -97,6 +97,7 @@ class process
         bool change_seed_dojo(seed cur_seed, seed new_seed);
         bool change_distance(float distance);
         bool change_limit(float limit);
+        void reset(void);
 
         operator bool() const;
         std::string get_last_error(void);
