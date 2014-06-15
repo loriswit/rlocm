@@ -11,6 +11,7 @@ process::process(const string& process_name)
     success = true;
     location = 0;
     location_2 = 0;
+    level = UNKNOWN_LEVEL;
 
     open(process_name);
 }
@@ -20,39 +21,19 @@ process::process(void)
     success = true;
     location = 0;
     location_2 = 0;
+    level = UNKNOWN_LEVEL;
+}
+
+void process::reset(void)
+{
+    success = true;
+    location = 0;
+    location_2 = 0;
+    level = UNKNOWN_LEVEL;
 }
 
 bool process::open(const string& process_name)
 {
-    /// NO LONGER NECESSARY:
-    /**
-	const char* window_name = process_name.c_str();
-    // we look for a window named as 'process_name'
-	cout << "Finding process: " << window_name << "... ";
-    HWND hwnd = FindWindow(NULL, window_name);
-	if(!hwnd){
-	    last_error = "Process not found!";
-	    success = false;
-	    return;
-	}
-    cout << "Success!" << endl;
-
-    // we get the ID of the process we have found
-    DWORD pid;
-    cout << "Getting thread process ID... ";
-    GetWindowThreadProcessId(hwnd,&pid);
-    cout << "Sucess!" << endl;
-
-    // we open the process with read/write access
-    cout << "Opening process... ";
-    phandle = OpenProcess(PROCESS_VM_READ|PROCESS_VM_WRITE|PROCESS_VM_OPERATION,0,pid);
-    if(!phandle){
-        last_error = "Could not get handle!";
-        success = false;
-        return;
-    }
-    */
-
     cout << "Opening process " << process_name << "... ";
     phandle = get_handle(process_name);
     if(phandle == NULL){
@@ -67,11 +48,11 @@ bool process::open(const string& process_name)
 
 extern StatusBar status_bar;
 
-seed process::get_seed(int level)
+seed process::get_seed(void)
 {
     cout << "Locating seed... ";
 
-    // prorgess bar init
+    // progress bar init
     textcolor(DARKGRAY);
     for(int i=0; i<16; i++) cout << char(0xB0);
     textcolor(LIGHTGRAY);
@@ -79,9 +60,8 @@ seed process::get_seed(int level)
     gotoxy(18,wherey());
     _setcursortype(1);
 
-    string str; // we're looking for this string in the RAM
-    if(level != DOJO) str = "countdown.act";
-    else str = "countdown_shaolin.act";
+    // we're looking for these strings in the RAM
+    string str = "countdown.act", str_dojo = "countdown_shaolin.act";
 
     bool located = false; // true if the correct string has been found
     unsigned int address = 0;
@@ -97,7 +77,7 @@ seed process::get_seed(int level)
 
         for(unsigned int j=0; j<sizeof(buffer); j++)
         {
-            if(buffer[j] == str[0])
+            if(buffer[j] == str[0]){
                 for(unsigned int k=1; k<str.size(); k++){ // we check if we found the string
                     if(buffer[j+k] == str[k]) located = true;
                     else{
@@ -105,6 +85,18 @@ seed process::get_seed(int level)
                         break;
                     }
                 }
+                if(!located) for(unsigned int k=1; k<str_dojo.size(); k++){ // we check if we found the dojo string
+                    if(buffer[j+k] == str_dojo[k]){
+                        located = true;
+                        level = DOJO;
+                    }
+                    else{
+                        located = false;
+                        level = UNKNOWN_LEVEL;
+                        break;
+                    }
+                }
+            }
 
             if(located)
             {
@@ -290,12 +282,15 @@ challenge_type process::get_type(seed cur_seed)
 
     uint8_t byte;
     seed s;
+    uint32_t address;
+    if(level != DOJO) address = location - 0x5F8;
+    else address = location - 0x12C; //FOR DOJOS
     for(int i=0; i<4; i++){
-        ReadProcessMemory(phandle,(void*)location+i-0x5F8,&byte,sizeof(char),NULL);
+        ReadProcessMemory(phandle,(void*)address+i,&byte,sizeof(char),NULL);
         s.set(i, byte);
     }
     if(s.to_str() != cur_seed.to_str()){
-        cout << endl << "CORRUPTED at 0x" << hex << location-0x5F8 << ": " << s.to_str() << endl << "cur_seed: " << cur_seed.to_str() << endl;
+        cout << endl << "CORRUPTED at 0x" << hex << address << ": " << s.to_str() << endl << "cur_seed: " << cur_seed.to_str() << endl;
         last_error = "Seed might be corrupted...";
         success = false;
         return type;
@@ -304,7 +299,7 @@ challenge_type process::get_type(seed cur_seed)
     string type_str;
     int i = 0;
     while(byte){
-        ReadProcessMemory(phandle,(void*)location+i-0x5F8+0x34,&byte,sizeof(char),NULL);
+        ReadProcessMemory(phandle,(void*)address+i+0x34,&byte,sizeof(char),NULL);
         if(byte) type_str += byte;
         i++;
     }
@@ -313,7 +308,7 @@ challenge_type process::get_type(seed cur_seed)
     bool located = false;
     i = 0;
     int progression = 0;
-    uint32_t address = 0x10000000;
+    address = 0x10000000;
     while(!located){
         ReadProcessMemory(phandle,(void*)address-i,&byte,sizeof(char),NULL);
         bool skip = true;
@@ -452,6 +447,25 @@ challenge_type process::get_type(seed cur_seed)
     else if(type_str == "challenge_drc_castle_lumsattack_expert.isg"){
         type.level = MURPHY;
         type.event = LUMS;
+        type.difficulty = EXPERT;
+    }
+
+    /// DOJO
+    else if(type_str == "challenge_shaolin_asmanylumsasyoucan_expert.isg"){
+        type.level = DOJO;
+        type.event = DISTANCE;
+        type.difficulty = EXPERT;
+    }
+    else if(type_str == "challenge_shaolin_default_normal.isg"){
+        type.level = DOJO;
+        if(type.distance == 60 && type.limit == 5) type.event = LUMS_SPEED;
+        else type.event = LUMS;
+        type.difficulty = NORMAL;
+    }
+    else if(type_str == "challenge_shaolin_default_expert.isg"){
+        type.level = DOJO;
+        if(type.distance == 60 && type.limit == 5) type.event = LUMS_SPEED;
+        else type.event = LUMS;
         type.difficulty = EXPERT;
     }
 
@@ -633,7 +647,7 @@ bool process::change_limit(float limit)
 {
     uint32_t num = float_to_uint32(limit);
 
-    cout << "Writing time limit to process memory" << endl;
+    cout << "Writing score limit to process memory" << endl;
 
     unsigned int address = location - 0x5F8 + 0x10;
 
@@ -665,16 +679,11 @@ bool process::change_limit(float limit)
         u /= 0x100;
     }
     cout << "Success!" << endl;
-    cout << "Time limit has been changed successfully!" << endl;
+    cout << "Score limit has been changed successfully!" << endl;
     return true;
 }
 
-void process::reset(void)
-{
-    success = true;
-    location = 0;
-    location_2 = 0;
-}
+
 
 
 process::operator bool() const
@@ -687,20 +696,17 @@ string process::get_last_error(void)
     return last_error;
 }
 
-HANDLE process::get_handle(const std::string& process_name)
+HANDLE process::get_handle(const string& process_name)
 {
     PROCESSENTRY32 entry;
     entry.dwSize = sizeof(PROCESSENTRY32);
 
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
 
-    if (Process32First(snapshot, &entry) == TRUE)
-    {
-        while (Process32Next(snapshot, &entry) == TRUE)
-        {
-            if (stricmp(entry.szExeFile, process_name.c_str()) == 0)
+    if(Process32First(snapshot, &entry))
+        while(Process32Next(snapshot, &entry))
+            if(!stricmp(entry.szExeFile, process_name.c_str()) )
                 return OpenProcess(PROCESS_ALL_ACCESS, FALSE, entry.th32ProcessID);
-        }
-    }
+
     return NULL;
 }

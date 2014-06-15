@@ -11,6 +11,7 @@ bool check_bundle(void);
 
 // MAIN
 void install_training_room_cb(Fl_Widget* widget, void*);
+void install_training_room_menu_cb(Fl_Widget* widget, void*);
 void load_challenge_cb(Fl_Widget* widget, void*);
 void apply_changes_cb(Fl_Widget* widget, void*);
 void reset_changes_cb(Fl_Widget* widget, void*);
@@ -18,35 +19,42 @@ void seed_input_cb(Fl_Widget* widget, void*);
 void random_seed_cb(Fl_Widget* widget, void*);
 void goal_input_cb(Fl_Widget* widget, void*);
 void limit_input_cb(Fl_Widget* widget, void*);
+void quit_cb(Fl_Widget* widget, void*){ exit(0); }
+void null_cb(Fl_Widget* widget, void*);
+void save_state_cb(Fl_Widget* widget, void*);
+void open_state_cb(Fl_Widget* widget, void*);
+#include "state_list.h"
 
 Fl_Window window(WIDTH, HEIGHT, "Seed Manager");
 
-Fl_Button load_button(10,10,120,30,"Load challenge");
-Fl_Check_Button dojo_check(150,14,210,25,"Current challenge is the Dojo");
+Fl_Menu_Bar menu(0,0,WIDTH+1,MENU_Y);
 
-Fl_Box level_box(10,44,200,30,"Level:");
-Fl_Box event_box(10,70,200,30,"Event:");
-Fl_Box diff_box(190,70,200,30,"Difficulty:");
+Fl_Button load_button(10,10+MENU_Y,120,30,"Load challenge");
+Fl_Check_Button training_check(150,12+MENU_Y,160,25,"Enable training room");
 
-Fl_Input seed_input(53,104,100,30,"Seed:");
-Fl_Button random_button(180,102,100,30,"Random seed");
+Fl_Box level_box(10,44+MENU_Y,200,30,"Level:");
+Fl_Box event_box(10,70+MENU_Y,200,30,"Event:");
+Fl_Box diff_box(215,70+MENU_Y,200,30,"Difficulty:");
 
-Fl_Float_Input goal_input(53,140,80,30,"Goal: ");
-Fl_Box goal_type(134,140,60,30);
-Fl_Float_Input limit_input(258,140,80,30,"Time limit:");
-Fl_Box limit_type(340,140,60,30);
+Fl_Input seed_input(53,104+MENU_Y,100,30,"Seed:");
+Fl_Button random_button(180,104+MENU_Y,100,30,"Random seed");
 
-Fl_Button change_button(10,186,110,30,"Apply changes");
-Fl_Button reset_button(130,186,60,30,"Reset");
-Fl_Check_Button training_check(210,190,160,25,"Enable training room");
+Fl_Float_Input goal_input(53,140+MENU_Y,80,30,"Goal: ");
+Fl_Box goal_type(134,140+MENU_Y,60,30);
+Fl_Float_Input  limit_input(258,140+MENU_Y,80,30,"Score limit:");
+Fl_Box limit_type(340,140+MENU_Y,60,30);
+
+Fl_Button change_button(10,186+MENU_Y,110,30,"Apply changes");
+Fl_Button reset_button(130,186+MENU_Y,60,30,"Reset");
+
+StatusBar status_bar;
 
 #if DEV_MODE
-Fl_Box dev_box(10,220,60,30,"Dev mode enabled");
-Fl_Check_Button console_check(150,220,120,30,"Show console");
+Fl_Box dev_box(10,220+MENU_Y,60,30,"Dev mode enabled");
+Fl_Check_Button console_check(170,220+MENU_Y,120,30,"Show console");
 void console_show_cb(Fl_Widget* widget, void*)
 {
-    Fl_Check_Button *console_check = (Fl_Check_Button*)widget;
-    if(console_check->value()){
+    if(console_check.value()){
         ShowWindow(GetConsoleWindow(), SW_SHOWNA);
         BringWindowToTop(GetActiveWindow());
     }
@@ -54,15 +62,19 @@ void console_show_cb(Fl_Widget* widget, void*)
 }
 #endif
 
-StatusBar status_bar;
+Fl_Window state_list(180,250,"Open");
+Fl_Box state_title(0,0,180,20,"States for this level type:");
+Fl_Hold_Browser browser(0,20,180,200);
+Fl_Button open_button(0,220,60,30,"Open");
+Fl_Button delete_button(60,220,60,30,"Delete");
+Fl_Button rename_button(120,220,60,30,"Rename");
+
 string bundle_path = BUNDLE_NAME;
 bundle bund;
 challenge_type type;
 
 int main(int argc, char **argv)
 {
-    bool training_mode = check_bundle();
-    clrscr();
     cout << "= SEED MANAGER =" << endl << "by Olybri (v" << VERSION_STR << ")" << endl;
     #if DEV_MODE
     textcolor(BROWN);
@@ -71,6 +83,8 @@ int main(int argc, char **argv)
     #endif
     cout << endl;
 
+    init_state_list();
+
     // Window creation
 
     window.color(FL_DARK2);
@@ -78,10 +92,29 @@ int main(int argc, char **argv)
     string str = "Seed Manager version " + VERSION_STR;
     status_bar.set(str.c_str());
 
+    bool training_mode = check_bundle();
+
+    menu.add("_&File/&Open state...\t",FL_CTRL+'o',open_state_cb,0,FL_MENU_INACTIVE);
+    menu.add("&File/_&Save state...\t",FL_CTRL+'s',save_state_cb,0,FL_MENU_INACTIVE);
+    menu.add("&File/&Quit\t",FL_CTRL+'q',quit_cb);
+
+    if(!training_mode) menu.add("_&Challenge/_Install &training room\t",FL_CTRL+'t',install_training_room_menu_cb);
+    else menu.add("_&Challenge/_Uninstall &training room\t",FL_CTRL+'t',install_training_room_menu_cb);
+    menu.add("&Challenge/&Load current challenge\t",FL_CTRL+'l',load_challenge_cb);
+    menu.add("&Challenge/&Apply changes\t",FL_CTRL+'a',apply_changes_cb,0,FL_MENU_INACTIVE);
+    menu.add("&Challenge/_&Reset changes\t",0,reset_changes_cb,0,FL_MENU_INACTIVE);
+    menu.add("&Challenge/&Copy current state\t",FL_CTRL+'c',null_cb,0,FL_MENU_INACTIVE);
+    menu.add("&Challenge/&Paste state\t",FL_CTRL+'v',null_cb,0,FL_MENU_INACTIVE);
+
+    menu.add("&Help/&Help\t",FL_F+1,null_cb);
+    menu.add("&Help/&About...\t",0,null_cb);
+
     load_button.callback(load_challenge_cb);
+    load_button.tooltip("Ctrl+L");
 
     training_check.value(training_mode);
     training_check.callback(install_training_room_cb);
+    training_check.tooltip("Ctrl+T");
 
     level_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
     event_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
@@ -113,14 +146,18 @@ int main(int argc, char **argv)
     console_check.labelcolor(84);
     console_check.labelfont(FL_BOLD);
     console_check.callback(console_show_cb);
-    console_check.value(true);
+    ShowWindow(GetConsoleWindow(), SW_HIDE);
     #endif
 
     deactive_all();
 
+    load_button.activate();
+    training_check.activate();
+
     window.end();
     window.show(argc, argv);
 
+    Fl::scheme(NULL);
     return(Fl::run());
 }
 
@@ -144,33 +181,35 @@ float str_to_float(const string& float_str)
 
 void update_change_button(void)
 {
-    if(goal_input.active()){
-        if(seed_input.value() == cur_seed.to_str() && str_to_float(cur_goal) == str_to_float(goal_input.value()) && str_to_float(cur_limit) == str_to_float(limit_input.value())){
-            change_button.deactivate();
-            reset_button.deactivate();
-        }
-        else{
-            change_button.activate();
-            reset_button.activate();
-        }
+    bool change = false;
+    if(seed_input.value() != cur_seed.to_str()) change = true;
+
+    if(goal_input.active())
+        if(str_to_float(cur_goal) != str_to_float(goal_input.value())) change = true;
+
+    if(limit_input.active())
+        if(str_to_float(cur_limit) != str_to_float(limit_input.value())) change = true;
+
+    if(change){
+        change_button.activate();
+        reset_button.activate();
+        menu.mode(menu.find_index(apply_changes_cb),0);
+        menu.mode(menu.find_index(reset_changes_cb),0);
     }
     else{
-        if(seed_input.value() == cur_seed.to_str()){
-            change_button.deactivate();
-            reset_button.deactivate();
-        }
-        else{
-            change_button.activate();
-            reset_button.activate();
-        }
+        change_button.deactivate();
+        reset_button.deactivate();
+        menu.mode(menu.find_index(apply_changes_cb),FL_MENU_INACTIVE);
+        menu.mode(menu.find_index(reset_changes_cb),FL_MENU_INACTIVE);
     }
 }
 
 void load_challenge_cb(Fl_Widget* widget, void*)
 {
-    load_button.deactivate();
-    dojo_check.deactivate();
-    training_check.deactivate();
+    seed_input.textcolor(FL_BLACK);
+    goal_input.textcolor(FL_BLACK);
+    limit_input.textcolor(FL_BLACK);
+
     deactive_all();
 
     cout << endl;
@@ -180,102 +219,75 @@ void load_challenge_cb(Fl_Widget* widget, void*)
         status_bar.set("Error!");
         load_button.activate();
         training_check.activate();
-        dojo_check.activate();
         error_out(proc.get_last_error());
         proc.reset();
         return;
     }
 
-    int lvl;
-    if(dojo_check.value()) lvl = DOJO;
-    else lvl = UNKNOWN_LEVEL;
-    cur_seed = proc.get_seed(lvl);
+    cur_seed = proc.get_seed();
     if(!proc){
         status_bar.set("Error!");
         load_button.activate();
         training_check.activate();
-        dojo_check.activate();
         error_out(proc.get_last_error());
         proc.reset();
         return;
     }
     seed_input.value(cur_seed.to_str().c_str());
 
-    if(lvl != DOJO){
-        type = proc.get_type(cur_seed);
-        if(!proc){
-            status_bar.set("Error!");
-            load_button.activate();
-            training_check.activate();
-            dojo_check.activate();
-            error_out(proc.get_last_error());
-            proc.reset();
-            return;
-        }
+    type = proc.get_type(cur_seed);
+    if(!proc){
+        status_bar.set("Error!");
+        load_button.activate();
+        training_check.activate();
+        error_out(proc.get_last_error());
+        proc.reset();
+        return;
     }
-    else{
-        type.level = DOJO;
-        type.event = UNKNOWN_EVENT;
-        type.difficulty = UNKNOWN_DIFFICULTY;
-        type.distance = UNKNOWN_DISTANCE;
-        type.limit = UNKNOWN_LIMIT;
-    }
+
     status_bar.set("Success!");
     Fl::flush();
 
-    load_button.activate();
-    dojo_check.activate();
-    training_check.activate();
     active_all();
+    menu.mode(menu.find_index(open_state_cb),0);
+    menu.mode(menu.find_index(save_state_cb),FL_MENU_DIVIDER);
 
     level_box.label(LEVEL_LIST[type.level].c_str());
 
-    if(type.level != DOJO){
-        event_box.label(EVENT_LIST[type.event].c_str());
-        diff_box.label(DIFFICULTY_LIST[type.difficulty].c_str());
-    }
-    else{
-        event_box.label(EVENT_LIST[4].c_str());
-        diff_box.label(DIFFICULTY_LIST[2].c_str());
-    }
+    event_box.label(EVENT_LIST[type.event].c_str());
+    diff_box.label(DIFFICULTY_LIST[type.difficulty].c_str());
 
-    if(type.event == DISTANCE){
-        goal_input.deactivate();
-        limit_input.deactivate();
-    }
+    if(type.event == DISTANCE) goal_input.deactivate();
     else{
-    if(type.distance == UNKNOWN_DISTANCE) goal_input.value("Unknown");
-    else{
-            ostringstream goal;
-            goal << type.distance;
-            goal_input.value(goal.str().c_str());
-            cur_goal = goal.str();
-            if(type.event == SPEED) goal_type.label("m");
-            else goal_type.label("lums");
-            Fl::flush();
-        }
-        if(type.limit == UNKNOWN_LIMIT) limit_input.value("Unknown");
+        if(type.distance == UNKNOWN_DISTANCE) goal_input.value("Unknown");
         else{
-            ostringstream limit;
-            limit << type.limit;
-            limit_input.value(limit.str().c_str());
-            cur_limit = limit.str();
-            limit_type.label("sec");
-            Fl::flush();
-        }
+                ostringstream goal;
+                goal << type.distance;
+                goal_input.value(goal.str().c_str());
+                cur_goal = goal.str();
+                if(type.event == SPEED) goal_type.label("m");
+                else if(type.event == LUMS_SPEED) goal_type.label("sec");
+                else goal_type.label("lums");
+                Fl::flush();
+            }
     }
 
-    if(type.level == DOJO){
-        event_box.deactivate();
-        diff_box.deactivate();
-        goal_input.deactivate();
-        limit_input.deactivate();
+    if(type.limit == UNKNOWN_LIMIT) limit_input.value("Unknown");
+    else{
+        ostringstream limit;
+        limit << type.limit;
+        limit_input.value(limit.str().c_str());
+        cur_limit = limit.str();
+        if(type.event == DISTANCE) limit_type.label("m");
+        else if(type.event == LUMS_SPEED) limit_type.label("lums");
+        else limit_type.label("sec");
+        Fl::flush();
     }
 
     update_change_button();
 }
 
-void install_training_room_cb(Fl_Widget* widget, void*)
+void install_training_room(bool install)
 {
     cout << endl;
 
@@ -287,7 +299,8 @@ void install_training_room_cb(Fl_Widget* widget, void*)
         return;
     }
 
-    if(training_check.value()){
+    //if(training_check.value()){
+    if(install){
         status_bar.set("Installing the training room...");
         Fl::flush();
         bund.install_training_room();
@@ -297,14 +310,31 @@ void install_training_room_cb(Fl_Widget* widget, void*)
         Fl::flush();
         bund.uninstall_training_room();
     }
-    training_check.value(bund.check_training());
+
+    bool training_enabled = bund.check_training();
     bund.close();
+
+    training_check.value(training_enabled);
+    Fl_Menu_Item *item = (Fl_Menu_Item*)menu.find_item(install_training_room_menu_cb);
+    if(!training_enabled) item->label("Install &training room");
+    else item->label("Uninstall &training room");
 
     if(!bund){
         status_bar.set("Error!");
         error_out(bund.get_last_error());
     }
     else status_bar.set("Success!");
+}
+
+void install_training_room_menu_cb(Fl_Widget* widget, void*)
+{
+    Fl_Menu_Item *item = (Fl_Menu_Item*)menu.find_item(install_training_room_menu_cb);
+    install_training_room(item->label()[0] == 'I');
+}
+
+void install_training_room_cb(Fl_Widget* widget, void*)
+{
+    install_training_room(training_check.value());
 }
 
 void apply_changes_cb(Fl_Widget* widget, void*)
@@ -395,6 +425,7 @@ void reset_changes_cb(Fl_Widget* widget, void*)
     }
 
     update_change_button();
+    status_bar.clear();
 }
 
 void seed_input_cb(Fl_Widget* widget, void*)
@@ -449,12 +480,50 @@ void limit_input_cb(Fl_Widget* widget, void*)
     status_bar.clear();
 }
 
+void null_cb(Fl_Widget* widget, void*)
+{
+    Fl_Menu_Item *item = (Fl_Menu_Item*)menu.mvalue();
+    MessageBox(0,item->label(),"NULL",0);
+}
+
+void save_state_cb(Fl_Widget* widget, void*)
+{
+    string name = fl_input("Save as:");
+    if(!name.size()) return;
+
+    const string key = "RLOCM/" + ALT_LEVEL_LIST[type.level] + "_" + ALT_EVENT_LIST[type.event] + "_" + ALT_DIFFICULTY_LIST[type.difficulty];
+    Fl_Preferences app(Fl_Preferences::USER, "RLM Team", key.c_str());
+
+    Fl_Preferences group(app, name.c_str());
+    group.set("seed", seed_input.value());
+    group.set("goal", goal_input.value());
+    group.set("limit", limit_input.value());
+
+    status_bar.set("State saved!");
+}
+
+void open_state_cb(Fl_Widget* widget, void*)
+{
+    const string key = "RLOCM/" + ALT_LEVEL_LIST[type.level] + "_" + ALT_EVENT_LIST[type.event] + "_" + ALT_DIFFICULTY_LIST[type.difficulty];
+    Fl_Preferences app(Fl_Preferences::USER, "RLM Team", key.c_str());
+
+    browser.clear();
+    for(int i=0; i<app.groups(); i++)
+        browser.add(app.group(i));
+
+    browser.sort(FL_SORT_ASCENDING);
+
+    state_list.show();
+}
 
 /// /////////////////////////////////////////////////////////////////////////////////////////
 /// /////////////////////////////////////////////////////////////////////////////////////////
 
 void deactive_all(void)
 {
+    load_button.deactivate();
+    training_check.deactivate();
+
     level_box.deactivate();
     event_box.deactivate();
     seed_input.deactivate();
@@ -479,6 +548,9 @@ void deactive_all(void)
 
 void active_all(void)
 {
+    load_button.activate();
+    training_check.activate();
+
     level_box.activate();
     event_box.activate();
     seed_input.activate();
@@ -541,7 +613,7 @@ bool check_bundle(void)
                 getcwd(current_dir, sizeof(current_dir));
 
                 bundle_path = get_bundle_path();
-                if(!bundle_path.size()) return 0;
+                if(!bundle_path.size()) exit(0);
                 bund.open(bundle_path);
                 if(!bund) error_out(bund.get_last_error(), true);
                 ofstream ofs((string(current_dir) + "\\Bundle_PC.path").c_str(), ios::binary);

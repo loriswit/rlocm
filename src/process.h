@@ -26,7 +26,6 @@ enum {  DOJO,
         MURPHY,
         UNKNOWN_LEVEL };
 
-
 const std::string LEVEL_LIST[6] = {
     "Level: The Dojo",
     "Level: Land of the Livid Dead",
@@ -35,13 +34,13 @@ const std::string LEVEL_LIST[6] = {
     "Level: Murfy's Dungeon",
     "Level: Unknown"};
 
-/*const char* LEVEL_LIST[6] = {
-    "Level: The Dojo",
-    "Level: Land of the Livid Dead",
-    "Level: The Neverending Pit",
-    "Level: The Infinite Tower",
-    "Level: Murphy's Dungeon",
-    "Level: Unknown"};*/
+const std::string ALT_LEVEL_LIST[6] = {
+    "dojo",
+    "lotld",
+    "pit",
+    "tower",
+    "murphy",
+    "other"};
 
 // CHALLENGE EVENT
 enum {  SPEED,
@@ -57,12 +56,12 @@ const std::string EVENT_LIST[5] = {
     "Event: Grab them quickly! (60\")",
     "Event: Unknown"};
 
-/*const char* EVENT_LIST[5] = {
-    "Event: Get there quickly!",
-    "Event: Grab them quickly!",
-    "Event: As far as you can!",
-    "Event: Grab them quickly! (60\")",
-    "Event: Unknown"};*/
+const std::string ALT_EVENT_LIST[5] = {
+    "speed",
+    "lums",
+    "distance",
+    "speedlums",
+    "other"};
 
 // CHALLENGE DIFFICULTY
 enum {  NORMAL,
@@ -74,10 +73,10 @@ const std::string DIFFICULTY_LIST[5] = {
     "Difficulty: Extreme",
     " "};
 
-/*const char* DIFFICULTY_LIST[5] = {
-    "Difficulty: Normal",
-    "Difficulty: Extreme",
-    "Difficulty: Unknown"};*/
+const std::string ALT_DIFFICULTY_LIST[5] = {
+    "normal",
+    "expert",
+    "other"};
 
 /****************************************/
 /// class process
@@ -89,7 +88,7 @@ class process
         process(const std::string& process_name);
         process(void);
         bool open(const std::string& process_name);
-        seed get_seed(int level);
+        seed get_seed(void);
         challenge_type get_type(seed cur_seed);
         float get_float(uint32_t address);
         uint32_t float_to_uint32(float f);
@@ -110,6 +109,7 @@ class process
         bool success;
         uint32_t location; // location of the seed
         uint32_t location_2; // lcation of the second seed (+ distance and type)
+        int level;
 
         std::string last_error;
 };
