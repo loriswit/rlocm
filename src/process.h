@@ -91,9 +91,9 @@ class process
         seed get_seed(void);
         challenge_type get_type(seed cur_seed);
         float get_float(uint32_t address);
-        uint32_t float_to_uint32(float f);
+        static uint32_t float_to_uint32(float f);
+        static float uint32_to_float(uint32_t i);
         bool change_seed(seed new_seed);
-        bool change_seed_dojo(seed cur_seed, seed new_seed);
         bool change_distance(float distance);
         bool change_limit(float limit);
         void reset(void);

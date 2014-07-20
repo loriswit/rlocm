@@ -23,9 +23,13 @@ void quit_cb(Fl_Widget* widget, void*){ exit(0); }
 void null_cb(Fl_Widget* widget, void*);
 void save_state_cb(Fl_Widget* widget, void*);
 void open_state_cb(Fl_Widget* widget, void*);
+void copy_state_cb(Fl_Widget* widget, void*);
+void paste_state_cb(Fl_Widget* widget, void*);
+void about_cb(Fl_Widget* widget, void*);
+void help_cb(Fl_Widget* widget, void*);
 #include "state_list.h"
 
-Fl_Window window(WIDTH, HEIGHT, "Seed Manager");
+Fl_Window window(WIDTH, HEIGHT, "RL Offline Challenge Manager");
 
 Fl_Menu_Bar menu(0,0,WIDTH+1,MENU_Y);
 
@@ -44,14 +48,14 @@ Fl_Box goal_type(134,140+MENU_Y,60,30);
 Fl_Float_Input  limit_input(258,140+MENU_Y,80,30,"Score limit:");
 Fl_Box limit_type(340,140+MENU_Y,60,30);
 
-Fl_Button change_button(10,186+MENU_Y,110,30,"Apply changes");
-Fl_Button reset_button(130,186+MENU_Y,60,30,"Reset");
+Fl_Button change_button(70,190+MENU_Y,120,34,"Apply changes");
+Fl_Button reset_button(210,190+MENU_Y,80,34,"Reset");
 
 StatusBar status_bar;
 
 #if DEV_MODE
-Fl_Box dev_box(10,220+MENU_Y,60,30,"Dev mode enabled");
-Fl_Check_Button console_check(170,220+MENU_Y,120,30,"Show console");
+Fl_Box dev_box(10,234+MENU_Y,60,30,"Dev mode enabled");
+Fl_Check_Button console_check(170,234+MENU_Y,120,30,"Show console");
 void console_show_cb(Fl_Widget* widget, void*)
 {
     if(console_check.value()){
@@ -63,11 +67,11 @@ void console_show_cb(Fl_Widget* widget, void*)
 #endif
 
 Fl_Window state_list(180,250,"Open");
-Fl_Box state_title(0,0,180,20,"States for this level type:");
+Fl_Box state_title(0,0,180,20,"Rules for this level type:");
 Fl_Hold_Browser browser(0,20,180,200);
 Fl_Button open_button(0,220,60,30,"Open");
 Fl_Button delete_button(60,220,60,30,"Delete");
-Fl_Button rename_button(120,220,60,30,"Rename");
+Fl_Button close_button(120,220,60,30,"Close");
 
 string bundle_path = BUNDLE_NAME;
 bundle bund;
@@ -89,13 +93,13 @@ int main(int argc, char **argv)
 
     window.color(FL_DARK2);
 
-    string str = "Seed Manager version " + VERSION_STR;
+    string str = "RLOCM version " + VERSION_STR;
     status_bar.set(str.c_str());
 
     bool training_mode = check_bundle();
 
-    menu.add("_&File/&Open state...\t",FL_CTRL+'o',open_state_cb,0,FL_MENU_INACTIVE);
-    menu.add("&File/_&Save state...\t",FL_CTRL+'s',save_state_cb,0,FL_MENU_INACTIVE);
+    menu.add("_&File/&Open rules...\t",FL_CTRL+'o',open_state_cb,0,FL_MENU_INACTIVE);
+    menu.add("&File/_&Save rules...\t",FL_CTRL+'s',save_state_cb,0,FL_MENU_INACTIVE);
     menu.add("&File/&Quit\t",FL_CTRL+'q',quit_cb);
 
     if(!training_mode) menu.add("_&Challenge/_Install &training room\t",FL_CTRL+'t',install_training_room_menu_cb);
@@ -103,11 +107,11 @@ int main(int argc, char **argv)
     menu.add("&Challenge/&Load current challenge\t",FL_CTRL+'l',load_challenge_cb);
     menu.add("&Challenge/&Apply changes\t",FL_CTRL+'a',apply_changes_cb,0,FL_MENU_INACTIVE);
     menu.add("&Challenge/_&Reset changes\t",0,reset_changes_cb,0,FL_MENU_INACTIVE);
-    menu.add("&Challenge/&Copy current state\t",FL_CTRL+'c',null_cb,0,FL_MENU_INACTIVE);
-    menu.add("&Challenge/&Paste state\t",FL_CTRL+'v',null_cb,0,FL_MENU_INACTIVE);
+    menu.add("&Challenge/&Copy current rules\t",FL_CTRL+'c',copy_state_cb,0,FL_MENU_INACTIVE);
+    menu.add("&Challenge/&Paste rules\t",FL_CTRL+'v',paste_state_cb,0,FL_MENU_INACTIVE);
 
-    menu.add("&Help/&Help\t",FL_F+1,null_cb);
-    menu.add("&Help/&About...\t",0,null_cb);
+    menu.add("&Help/&Help\t",FL_F+1,help_cb);
+    menu.add("&Help/&About...\t",0,about_cb);
 
     load_button.callback(load_challenge_cb);
     load_button.tooltip("Ctrl+L");
@@ -138,6 +142,7 @@ int main(int argc, char **argv)
 
     change_button.callback(apply_changes_cb);
     reset_button.callback(reset_changes_cb);
+    reset_button.tooltip("Reset to last changes");
 
     #if DEV_MODE
     dev_box.align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
@@ -194,18 +199,19 @@ void update_change_button(void)
         change_button.activate();
         reset_button.activate();
         menu.mode(menu.find_index(apply_changes_cb),0);
-        menu.mode(menu.find_index(reset_changes_cb),0);
+        menu.mode(menu.find_index(reset_changes_cb),FL_MENU_DIVIDER);
     }
     else{
         change_button.deactivate();
         reset_button.deactivate();
         menu.mode(menu.find_index(apply_changes_cb),FL_MENU_INACTIVE);
-        menu.mode(menu.find_index(reset_changes_cb),FL_MENU_INACTIVE);
+        menu.mode(menu.find_index(reset_changes_cb),FL_MENU_INACTIVE|FL_MENU_DIVIDER);
     }
 }
 
 void load_challenge_cb(Fl_Widget* widget, void*)
 {
+#if !INIT
     seed_input.textcolor(FL_BLACK);
     goal_input.textcolor(FL_BLACK);
     limit_input.textcolor(FL_BLACK);
@@ -248,9 +254,21 @@ void load_challenge_cb(Fl_Widget* widget, void*)
     status_bar.set("Success!");
     Fl::flush();
 
+#else
+    cur_seed = seed(SEED);
+    seed_input.value(cur_seed.to_str().c_str());
+    type.distance = GOAL;
+    type.limit = LIMIT;
+    type.level = LEVEL;
+    type.event = EVENT;
+    type.difficulty = DIFFICULTY;
+#endif
+
     active_all();
     menu.mode(menu.find_index(open_state_cb),0);
     menu.mode(menu.find_index(save_state_cb),FL_MENU_DIVIDER);
+    menu.mode(menu.find_index(copy_state_cb),0);
+    menu.mode(menu.find_index(paste_state_cb),0);
 
     level_box.label(LEVEL_LIST[type.level].c_str());
 
@@ -357,8 +375,8 @@ void apply_changes_cb(Fl_Widget* widget, void*)
     if(seed_input.value() != cur_seed.to_str()){
         cout << endl;
         seed new_seed(seed_input.value());
-        if(type.level != DOJO) proc.change_seed(new_seed);
-        else proc.change_seed_dojo(cur_seed, new_seed);
+        /*if(type.level != DOJO)*/ proc.change_seed(new_seed);
+        //else proc.change_seed_dojo(cur_seed, new_seed);
         if(!proc){
             error_out(proc.get_last_error());
             status_bar.set("Error!");
@@ -464,6 +482,7 @@ void random_seed_cb(Fl_Widget* widget, void*)
 
 void goal_input_cb(Fl_Widget* widget, void*)
 {
+    if(!strlen(goal_input.value())) goal_input.value("0");
     if(str_to_float(cur_goal) != str_to_float(goal_input.value())) goal_input.textcolor(FL_RED);
     else goal_input.textcolor(FL_BLACK);
     goal_input.redraw();
@@ -473,6 +492,7 @@ void goal_input_cb(Fl_Widget* widget, void*)
 
 void limit_input_cb(Fl_Widget* widget, void*)
 {
+    if(!strlen(limit_input.value())) limit_input.value("0");
     if(str_to_float(cur_limit) != str_to_float(limit_input.value())) limit_input.textcolor(FL_RED);
     else limit_input.textcolor(FL_BLACK);
     limit_input.redraw();
@@ -488,18 +508,21 @@ void null_cb(Fl_Widget* widget, void*)
 
 void save_state_cb(Fl_Widget* widget, void*)
 {
-    string name = fl_input("Save as:");
+    const char* input = fl_input("Save as:");
+    if(input == NULL) return;
+    string name = input;
     if(!name.size()) return;
 
     const string key = "RLOCM/" + ALT_LEVEL_LIST[type.level] + "_" + ALT_EVENT_LIST[type.event] + "_" + ALT_DIFFICULTY_LIST[type.difficulty];
     Fl_Preferences app(Fl_Preferences::USER, "RLM Team", key.c_str());
 
+    if(app.groupExists(name.c_str())) if(MessageBox(0, string("Overwrite '" + name + "'?").c_str(), "Rules name already exists", MB_YESNO) == IDNO) return;
     Fl_Preferences group(app, name.c_str());
     group.set("seed", seed_input.value());
     group.set("goal", goal_input.value());
     group.set("limit", limit_input.value());
 
-    status_bar.set("State saved!");
+    status_bar.set("Rules saved!");
 }
 
 void open_state_cb(Fl_Widget* widget, void*)
@@ -516,8 +539,113 @@ void open_state_cb(Fl_Widget* widget, void*)
     state_list.show();
 }
 
+void copy_state_cb(Fl_Widget* widget, void*)
+{
+    seed_input.do_callback();
+
+    ostringstream ostr;
+    ostr << "{" << seed_input.value()
+        << ";" << hex << uppercase << setw(8) << setfill('0') << process::float_to_uint32(str_to_float(goal_input.value()))
+        << ";" << process::float_to_uint32(str_to_float(limit_input.value())) << "}";
+    string str = ostr.str();
+    for(unsigned int i=0; i<str.size(); i++)
+        if(str[i] == ' ') str.erase(i,1);
+    const char *text = str.c_str();
+
+    HANDLE hGlobalMem = GlobalAlloc(GHND, lstrlen(text)+1);
+    char *lpGlobalMem = NULL;
+    if(hGlobalMem == NULL) return;
+
+    lpGlobalMem = (char*)GlobalLock(hGlobalMem);
+    if(lpGlobalMem == NULL) return;
+
+    lstrcpy(lpGlobalMem, text);
+    GlobalUnlock(hGlobalMem);
+    if(!OpenClipboard(NULL)) return;
+
+    EmptyClipboard();
+    SetClipboardData(CF_TEXT, hGlobalMem);
+    CloseClipboard();
+}
+
+void paste_state_cb(Fl_Widget* widget, void*)
+{
+    if(!IsClipboardFormatAvailable(CF_TEXT)) return;
+    if(!OpenClipboard(NULL)) return;
+    HGLOBAL hglb = GetClipboardData(CF_TEXT);
+    if (hglb != NULL)
+    {
+        string str = static_cast<char*>(GlobalLock(hglb));
+        if(str.size())
+        {
+            if(str[0] != '{' ||
+                str[9] != ';' ||
+                str[18] != ';' ||
+                str[27] != '}' ||
+                str.size() != 28){
+                    error_out("Invalid clipboard...");
+                    GlobalUnlock(hglb);
+                    CloseClipboard();
+                    return;
+                }
+
+            string seed_str = str;
+            seed_str.erase(0,1);
+            seed_str.erase(8,str.size()-9);
+
+            string goal_str = str;
+            goal_str.erase(0,10);
+            goal_str.erase(8,str.size()-9);
+
+            string limit_str = str;
+            limit_str.erase(0,19);
+            limit_str.erase(8,str.size()-9);
+
+            seed_input.value(seed(seed_str).to_str().c_str());
+            seed_input.do_callback();
+
+            istringstream goal_isstr(goal_str);
+            uint32_t uint;
+            goal_isstr >> hex >> uint;
+            ostringstream goal_osstr;
+            goal_osstr << process::uint32_to_float(uint);
+            goal_input.value(goal_osstr.str().c_str());
+            goal_input.do_callback();
+
+            istringstream limit_isstr(limit_str);
+            limit_isstr >> hex >> uint;
+            ostringstream limit_osstr;
+            limit_osstr << process::uint32_to_float(uint);
+            limit_input.value(limit_osstr.str().c_str());
+            limit_input.do_callback();
+
+            GlobalUnlock(hglb);
+        }
+    }
+    CloseClipboard();
+}
+
+void about_cb(Fl_Widget* widget, void*)
+{
+    MessageBox(0,string("Rayman Legends Offline Challenge Manager:\n"
+                "Version " + VERSION_STR + "\n"
+                "RLOCM will allow you to change the rules of the\nchallenges used in Rayman® Legends.\n\n"
+                "Credit:\n"
+                "Olybri: Author of this program\n"
+                "DJTHED: Discovered a way to modify the seed\n"
+                "CaneofPacci: Unlocked the training room on PC\n"
+                "UsWar: Discovered nice things in the RAM.\n").c_str(),
+                "About the program",0);
+}
+
+void help_cb(Fl_Widget* widget, void*)
+{
+    system("start readme.txt");
+}
+
 /// /////////////////////////////////////////////////////////////////////////////////////////
 /// /////////////////////////////////////////////////////////////////////////////////////////
+
 
 void deactive_all(void)
 {

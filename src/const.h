@@ -7,6 +7,14 @@
 
 #define DEV_MODE TRUE    // DO NOT MODIFY
 
+#define INIT FALSE
+#define SEED "DEADBEEF"
+#define GOAL 300
+#define LIMIT 180
+#define LEVEL 0
+#define EVENT 0
+#define DIFFICULTY 0
+
 /****************************************/
 /// INCLUDES
 /****************************************/
@@ -71,9 +79,9 @@
 // Window size
 const int WIDTH = 390;
 #if !DEV_MODE
-const int HEIGHT = 250 + MENU_Y;
+const int HEIGHT = 260 + MENU_Y;
 #else
-const int HEIGHT = 280 + MENU_Y;
+const int HEIGHT = 290 + MENU_Y;
 #endif
 
 class StatusBar : public Fl_Box
@@ -95,7 +103,7 @@ struct update_info
     std::string url;
 };
 
-const int BUILD = 10;
+const int BUILD = 11;
 const std::string VERSION_STR = "1.0.0";
 const std::string UPDATE_URL = "https://dl.dropboxusercontent.com/u/109130039/seed-manager.com/update?dl=1";
 

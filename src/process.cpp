@@ -50,6 +50,7 @@ extern StatusBar status_bar;
 
 seed process::get_seed(void)
 {
+    // We need to know the seed so that we can look for other occurrences of it
     cout << "Locating seed... ";
 
     // progress bar init
@@ -143,15 +144,6 @@ seed process::get_seed(void)
                             break;
                         }
                     }
-                    /*if(located) for(int k=0; k<3; k++){
-                        if(buffer[j-13-k]!=0x00){
-                            located = false;
-                            break;
-                        }
-                    }
-                    if(located)
-                        if(buffer[j-16]!=0x01)
-                            located=false;*/
 
                     if(located) for(int k=0; k<8; k++){
                         if(buffer[j-17-k]!=0x00){
@@ -234,12 +226,12 @@ seed process::get_seed(void)
         }
     }
 
-    // we finalize the progress bar
+    // We finalize the progress bar
     gotoxy(18,wherey());
     for(int i=0; i<16; i++) cout << char(0xB2);
     _setcursortype(_NORMALCURSOR);
 
-    // now it's time to read the seed, which is located some bytes before the string that has been found
+    // Now it's time to read the seed, which is located some bytes before the string that has been found
     seed s;
     int pos;
     if(level != DOJO) pos = 12;
@@ -274,12 +266,15 @@ challenge_type process::get_type(seed cur_seed)
     type.distance = UNKNOWN_DISTANCE;
     type.limit = UNKNOWN_LIMIT;
 
+    // The seed must have be found before
     if(!location){
         last_error = "'location' is undefined";
         success = false;
         return type;
     }
 
+    // There must be a location in the RAM (before the location of the seed we found) which also stores the seed
+    // The ISG filename is located near this 2nd seed location
     uint8_t byte;
     seed s;
     uint32_t address;
@@ -290,21 +285,29 @@ challenge_type process::get_type(seed cur_seed)
         s.set(i, byte);
     }
     if(s.to_str() != cur_seed.to_str()){
+        // If the seed is not the same as the one found before, the RAM or the SEED must have been corrupted
         cout << endl << "CORRUPTED at 0x" << hex << address << ": " << s.to_str() << endl << "cur_seed: " << cur_seed.to_str() << endl;
         last_error = "Seed might be corrupted...";
         success = false;
         return type;
     }
 
-    string type_str;
+    string type_str; // This string stores the ISG filename
     int i = 0;
-    while(byte){
+    do{
         ReadProcessMemory(phandle,(void*)address+i+0x34,&byte,sizeof(char),NULL);
         if(byte) type_str += byte;
         i++;
+    }while(byte);
+
+    if(!type_str.size()){
+        last_error = "Cannot read the ISG filename. RAM might be corrupted...";
+        success = false;
+        return type;
     }
 
     /// SEARCH ALGORITHM
+    // We will now search a occurrence of the ISG filename earlier in the RAM
     bool located = false;
     i = 0;
     int progression = 0;
@@ -316,7 +319,6 @@ challenge_type process::get_type(seed cur_seed)
             located = true;
             for(unsigned int j=0; j<type_str.size(); j++){
                 ReadProcessMemory(phandle,(void*)address-i+j,&byte,sizeof(char),NULL);
-                //if(address-i == 0xd790750) cout << byte << " " << type_str[type_str.size()-1-j] << endl;
                 if(byte != type_str[j]){
                     located = false;
                     break;
@@ -327,19 +329,14 @@ challenge_type process::get_type(seed cur_seed)
         for(unsigned int j=0; j<type_str.size(); j++)
             if(byte == type_str[j]) skip = false;
 
-        //if(address-i < 0xd790800 && address-i > 0xd790600) cout << "LAC: " << address-i << endl;
-
         if(located){
             skip = false;
-            //cout << "loc: " << address-i << endl;
             for(int j=0; j<4; j++){
                 ReadProcessMemory(phandle,(void*)address-i+j-0x34,&byte,sizeof(char),NULL);
                 if(byte != cur_seed[j]) located = false;
-                //cout << "   byte: " << hex << int(byte) << "   seed[i]: " << int(cur_seed[j]) << endl;
             }
             if(located) location_2 = address-i;
         }
-        //if((address-i)%0x100000 == 0) cout << "0x" << hex << address-i << endl;
         i++;
         if(skip) i += type_str.size() - 1;
         if(address-i < 0x100000){
@@ -364,6 +361,7 @@ challenge_type process::get_type(seed cur_seed)
 
     location_2 -= 0x34;
 
+    // Now we have the 2nd occurrence of the ISG filename, and we know that there are values that can be modified, such as the seed, the goal, the limit etc...
     type.distance = get_float(location_2 + 0xC);
     type.limit = get_float(location_2 + 0x10);
 
@@ -482,14 +480,20 @@ float process::get_float(uint32_t address)
         num += byte;
     }
     num = bundle::swap(num);
-    float distance = *((float*)&num);
-    return distance;
+    float f = *((float*)&num);
+    return f;
 }
 
 uint32_t process::float_to_uint32(float f)
 {
     uint32_t num = *((uint32_t*)&f);
     return num;
+}
+
+float process::uint32_to_float(uint32_t i)
+{
+    float f = *((float*)&i);
+    return f;
 }
 
 bool process::change_seed(seed new_seed)
@@ -510,7 +514,9 @@ bool process::change_seed(seed new_seed)
     }
     cout << "Success!" << endl;
 
-    address -= 0x5F8;
+    if(level != DOJO) address -= 0x5F8;
+    else address -= 0x12C; //FOR DOJOS
+
     cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
     for(int i=0; i<4; i++){
         int byte = new_seed[i];
@@ -535,70 +541,6 @@ bool process::change_seed(seed new_seed)
         else success = true;
     }
     cout << "Success!" << endl;
-    cout << "Seed has been changed successfully!" << endl;
-    return true;
-}
-
-
-bool process::change_seed_dojo(seed cur_seed, seed new_seed)
-{
-    cout << "Writing seed to process memory";
-
-    cout << endl << "Please wait...";
-
-    bool located = false; // true if the correct string has been found
-    unsigned int address = 0;
-    unsigned char buffer[0x1000];
-
-    int occur_cnt = 0;
-
-    for(int i=0; i<0x100000; i++)
-    {
-        address = i*0x1000;
-        if(!ReadProcessMemory(phandle,(void*)address,&buffer,sizeof(buffer),NULL)) continue; // continue if the area is inaccessible
-        for(unsigned int j=0; j<sizeof(buffer); j++)
-        {
-            if(buffer[j] == cur_seed[0]){
-                for(int k=1; k<4; k++){ // we check if we found the current seed
-                    if(buffer[j+k] == cur_seed[k]) located=true;
-                    else{
-                        located = false;
-                        break;
-                    }
-                }
-            }
-
-            if(located)
-            {
-                occur_cnt++;
-                gotoxy(1,wherey());
-                cout << "at 0x" << hex << uppercase << setw(8) << setfill('0') << address << "... ";
-                // we write the seed at the address
-                for(int k=0; k<4; k++){
-                    int byte = new_seed[k];
-                    if(!WriteProcessMemory(phandle,(void*)address+k,&byte,1,NULL)){
-                        last_error = "Could not write to process memory";
-                        success = false;
-                        return false;
-                    }
-                    else success = true;
-                }
-                if(success) cout << "Success!" << endl << "Please wait...";
-                located = false;
-            }
-            if(address > location+10) break;
-            address++;
-        }
-        if(address > location+10) break;
-    }
-
-    if(!occur_cnt){
-        last_error = "Could not change the seed!";
-        success = false;
-        return false;
-    }
-
-    gotoxy(1,wherey());
     cout << "Seed has been changed successfully!" << endl;
     return true;
 }
