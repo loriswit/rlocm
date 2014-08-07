@@ -1,13 +1,19 @@
 #include "seed_manager.h"
 using namespace std;
 
+#include "state_list.h"
+
 // HELPERS
 void deactive_all(void);
 void active_all(void);
 string get_bundle_path(void);
+bool check_bundle(void);
+bool check_for_update(bool mb_noupdate);
+void cmd(const string& command);
+
 void error_out(const string& str, bool _exit = false);
 void warning_out(const string& str, bool _exit = false);
-bool check_bundle(void);
+bool return_false(const string& err, bool endline = true);
 
 // MAIN
 void install_training_room_cb(Fl_Widget* widget, void*);
@@ -27,7 +33,7 @@ void copy_state_cb(Fl_Widget* widget, void*);
 void paste_state_cb(Fl_Widget* widget, void*);
 void about_cb(Fl_Widget* widget, void*);
 void help_cb(Fl_Widget* widget, void*);
-#include "state_list.h"
+void check_for_update_cb(Fl_Widget* widget, void*);
 
 Fl_Window window(WIDTH, HEIGHT, "RL Offline Challenge Manager");
 
@@ -73,6 +79,10 @@ Fl_Button open_button(0,220,60,30,"Open");
 Fl_Button delete_button(60,220,60,30,"Delete");
 Fl_Button close_button(120,220,60,30,"Close");
 
+Fl_Window update_window(220,120,"Updating");
+Fl_Box update_text(0,10,220,50,"Checking for update");
+Fl_Button update_button(60,80,100,30,"Cancel");
+
 string bundle_path = BUNDLE_NAME;
 bundle bund;
 challenge_type type;
@@ -111,6 +121,7 @@ int main(int argc, char **argv)
     menu.add("&Challenge/&Paste rules\t",FL_CTRL+'v',paste_state_cb,0,FL_MENU_INACTIVE);
 
     menu.add("&Help/&Help\t",FL_F+1,help_cb);
+    menu.add("&Help/Check for updates...\t",0,check_for_update_cb);
     menu.add("&Help/&About...\t",0,about_cb);
 
     load_button.callback(load_challenge_cb);
@@ -161,6 +172,9 @@ int main(int argc, char **argv)
 
     window.end();
     window.show(argc, argv);
+
+    thread update_thread(check_for_update, false);
+    update_thread.detach();
 
     Fl::scheme(NULL);
     return(Fl::run());
@@ -218,7 +232,7 @@ void load_challenge_cb(Fl_Widget* widget, void*)
 
     deactive_all();
 
-    cout << endl;
+    //cout << endl;
 
     proc.open(PROCESS_NAME);
     if(!proc){
@@ -634,13 +648,23 @@ void about_cb(Fl_Widget* widget, void*)
                 "Olybri: Author of this program\n"
                 "DJTHED: Discovered a way to modify the seed\n"
                 "CaneofPacci: Unlocked the training room on PC\n"
-                "UsWar: Discovered nice things in the RAM.\n").c_str(),
+                "UsWar: Discovered nice things in the RAM\n\n"
+                "Contact:\n"
+                "olibrius.media@gmail.com").c_str(),
                 "About the program",0);
 }
 
 void help_cb(Fl_Widget* widget, void*)
 {
-    system("start readme.txt");
+    cmd("start readme.txt");
+}
+
+void check_for_update_cb(Fl_Widget* widget, void*)
+{
+    status_bar.set("Checking for update...");
+
+    thread update_thread(check_for_update, true);
+    update_thread.detach();
 }
 
 /// /////////////////////////////////////////////////////////////////////////////////////////
@@ -691,6 +715,8 @@ void active_all(void)
     change_button.activate();
     reset_button.activate();
 }
+
+////////////////////////////////////////////////////////////////
 
 bool check_bundle(void)
 {
@@ -781,6 +807,84 @@ string get_bundle_path(void)
     return "";
 }
 
+bool check_for_update(bool mb_noupdate)
+{
+    cout << "Checking for update" << endl;
+    if(InternetAttemptConnect(0) != ERROR_SUCCESS) return return_false("No internet connexion", false);
+
+    HINTERNET hInet = InternetOpen("downloader", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+    if(hInet == NULL) return return_false("Can't open connection", false);
+
+    cout << "Downloading update info... ";
+    HINTERNET hIurl = InternetOpenUrl(hInet, UPDATE_URL.c_str(), NULL, NULL, INTERNET_FLAG_NO_CACHE_WRITE, 0);
+    if(hIurl == NULL) return return_false("Can't open URL");
+
+    stringstream str;
+    unsigned long total = 0;
+    unsigned long numrcved;
+    do{
+        char buf[0x2800];
+        if(!InternetReadFile(hIurl, &buf, sizeof(buf), &numrcved)) return return_false("Download failed");
+
+        if(numrcved) str << buf;
+        total += numrcved;
+    }while(numrcved > 0);
+
+    InternetCloseHandle(hIurl);
+    InternetCloseHandle(hInet);
+
+    cout << "Success!" << endl;
+
+    int version;
+    string version_str, dl_url;
+    str >> version >> version_str >> dl_url;
+
+    update_info update;
+    update.available = (BUILD < version);
+
+    if(update.available){
+        for(unsigned int i=0; i<version_str.size(); i++)
+        if(version_str[i] == '_') version_str[i] = ' ';
+        update.version = version_str;
+        update.url = dl_url;
+        cout << "Update available: " << version_str << " (build " << version << ")" << endl;
+        if(MessageBox(0,string("An update is available!\nVersion: " + version_str + "\nWould you like to download it?").c_str(),"RLOCM Update",MB_YESNO|MB_ICONASTERISK|MB_SYSTEMMODAL) == IDYES)
+            cmd("start " + update.url);
+        return true;
+    }
+
+    else{
+        cout << "Current version is up to date" << endl;
+        if(mb_noupdate) MessageBox(0,"This software is up to date","RLOCM Update",MB_ICONASTERISK);
+    }
+
+    return false;
+}
+
+void cmd(const string& command)
+{
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    si.wShowWindow = SW_HIDE;
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    ZeroMemory(&pi, sizeof(pi));
+
+    char cmdline[MAX_PATH];
+    strcpy(cmdline, ("cmd /c " + command).c_str());
+
+    if(CreateProcess(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+    {
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+}
+
+//////////////////////////////////////////////////////////////////
+
 void error_out(const string& str, bool _exit)
 {
     textcolor(LIGHTRED);
@@ -797,4 +901,13 @@ void warning_out(const string& str, bool _exit)
     textcolor(LIGHTGRAY);
     MessageBox(0, str.c_str(), "Warning", MB_ICONWARNING);
     if(_exit) exit(0);
+}
+
+bool return_false(const string& err, bool endline)
+{
+    textcolor(CYAN);
+    if(endline) cout << endl;
+    cout << "WARNING: " << err << endl;
+    textcolor(LIGHTGRAY);
+    return false;
 }

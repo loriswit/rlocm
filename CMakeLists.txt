@@ -28,7 +28,7 @@ include_directories(third_party/fltk)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 
 add_executable(rlocm ${RLOCM_SRC} ${CONIO_SRC} ${RLOCM_RES})
-target_link_libraries(rlocm fltk)
+target_link_libraries(rlocm fltk wininet)
 
 add_custom_command(TARGET rlocm POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy

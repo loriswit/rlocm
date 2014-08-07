@@ -5,7 +5,7 @@
 /// DEVELOPPER MODE
 /****************************************/
 
-#define DEV_MODE TRUE    // DO NOT MODIFY
+#define DEV_MODE FALSE    // DO NOT MODIFY
 
 #define INIT FALSE
 #define SEED "DEADBEEF"
@@ -40,6 +40,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <thread>
 
 #include <windows.h>
 #include <time.h>
@@ -103,12 +104,9 @@ struct update_info
     std::string url;
 };
 
-const int BUILD = 11;
+const int BUILD = 12;
 const std::string VERSION_STR = "1.0.0";
-const std::string UPDATE_URL = "https://dl.dropboxusercontent.com/u/109130039/seed-manager.com/update?dl=1";
-
-const bool NO = false;
-const bool YES = true;
+const std::string UPDATE_URL = "https://dl.dropboxusercontent.com/u/109130039/rlocm/update?dl=1";
 
 const std::string PROCESS_NAME = "Rayman Legends.exe";
 const std::string BUNDLE_NAME = "C:/Program Files (x86)/Steam/SteamApps/common/Rayman Legends/Bundle_PC.ipk";
@@ -130,7 +128,5 @@ const std::string FILE_LIST[9] = {
     "cache/itf_cooked/pc/world/home/paintings_and_notifications/painting_levels/textures/challenge/challenge_5.tga.ckd",
     "cache/itf_cooked/pc/world/home/paintings_and_notifications/painting_challengeendless/animation/painting_challengeendless_a1.tga.ckd",
     "cache/itf_cooked/pc/world/common/ui/suitcase/animation/suitcase_a1.tga.ckd"};
-
-const std::string SHAOLIN_PATH = "cache/itf_cooked/pc/world/challenge/shaolinplaza/brick/challenge_shaolin_default_expert.isg.ckd";
 
 #endif // CONST_H_INCLUDED

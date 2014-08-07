@@ -28,6 +28,5 @@ void delete_cb(Fl_Widget* widget, void*);
 void close_cb(Fl_Widget* widget, void*);
 void open_cb(Fl_Widget* widget, void*);
 
-extern void reset_changes_cb(Fl_Widget* widget, void*);
 
 #endif // STATELIST_H_INCLUDED
