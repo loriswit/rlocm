@@ -101,7 +101,7 @@ class process
         operator bool() const;
         std::string get_last_error(void);
 
-        static HANDLE get_handle(const std::string& process_name);
+        HANDLE get_handle(const std::string& process_name);
 
     private:
 
@@ -110,6 +110,7 @@ class process
         uint32_t location; // location of the seed
         uint32_t location_2; // lcation of the second seed (+ distance and type)
         int level;
+        bool too_many_processes;
 
         std::string last_error;
 };

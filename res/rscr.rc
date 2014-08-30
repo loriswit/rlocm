@@ -24,8 +24,8 @@
 119 RCDATA data\default\suitcase_a1.tga.ckd_COMPRESSED
 
 1 VERSIONINFO
-FILEVERSION    	0,1,0,0
-PRODUCTVERSION 	0,1,0,0
+FILEVERSION    	1,0,1,0
+PRODUCTVERSION 	1,0,1,0
 FILEOS 0x40004
 FILETYPE 0x01
 BEGIN
@@ -36,13 +36,13 @@ BEGIN
             VALUE "Comments",         "RLOCM allows you to change the rules of the challenges used in Rayman® Legends.\0"
             VALUE "CompanyName",      "RLM Team\0"
             VALUE "FileDescription",  "Rayman Legends Offline Challenge Manager\0"
-            VALUE "FileVersion",      "0.1.0.0\0"
-            VALUE "InternalName",     "Seed Manager\0"
+            VALUE "FileVersion",      "1.0.1\0"
+            VALUE "InternalName",     "Challenge Manager\0"
             VALUE "LegalCopyright",   "N/A\0"
             VALUE "LegalTrademarks",  "Rayman® Legends is a trademark of Ubisoft."
             VALUE "OriginalFilename", "rlocm.exe\0"
             VALUE "ProductName",      "RL Offline Challenge Manager\0"
-            VALUE "ProductVersion",   "1.0.0\0"
+            VALUE "ProductVersion",   "1.0.1\0"
         END
     END
 

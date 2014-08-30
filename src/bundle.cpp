@@ -150,8 +150,8 @@ bool bundle::install_training_room(int resource)
     if(resource == 101) cout << "Installing the training room...";
     else cout << "Uninstalling the training room...";
 
-
-	if(process::get_handle(PROCESS_NAME) != NULL){
+    process proc;
+	if(proc.get_handle(PROCESS_NAME) != NULL){
 	    #if !DEV_MODE
 	    if(resource == 101) last_error = "Could not install the training room while '" + PROCESS_NAME + "' is running!";
 	    else last_error = "Could not uninstall the training room while '" + PROCESS_NAME + "' is running!";

@@ -1,5 +1,5 @@
 RAYMAN LEGENDS OFFLINE CHALLENGE MANAGER
-Version 1.0.0
+Version 1.0.1
 http://tinyurl.com/rlocm-download
 
 ******* ABOUT ********
@@ -15,6 +15,10 @@ UsWar: Discovered nice things in the RAM
 Follow the updates here: http://goo.gl/uEN2Wt
 
 WHAT'S NEW?
+  -- 1.0.1 - 30th August 2014 --
+-Removed the password request when the Bundle_PC is not in the default directory
+-Added internal functions to avoid cheating
+
   -- 1.0.0 - 7th August 2014 --
 -Added a GUI to the program.
 -Added an "Apply changes" button.

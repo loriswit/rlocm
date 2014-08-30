@@ -1,6 +1,7 @@
 #include "process.h"
 
 using namespace std;
+extern string bundle_path;
 
 /****************************************/
 /// class process
@@ -9,6 +10,7 @@ using namespace std;
 process::process(const string& process_name)
 {
     success = true;
+    too_many_processes = false;
     location = 0;
     location_2 = 0;
     level = UNKNOWN_LEVEL;
@@ -19,6 +21,7 @@ process::process(const string& process_name)
 process::process(void)
 {
     success = true;
+    too_many_processes = false;
     location = 0;
     location_2 = 0;
     level = UNKNOWN_LEVEL;
@@ -35,12 +38,37 @@ void process::reset(void)
 bool process::open(const string& process_name)
 {
     cout << "Opening process " << process_name << "... ";
+
+    too_many_processes = false;
     phandle = get_handle(process_name);
     if(phandle == NULL){
         last_error = "Process \"" + process_name + "\" not found!";
         success = false;
         return false;
     }
+    if(too_many_processes){
+        last_error = "Multiple processes \"" + process_name + "\" found!";
+        success = false;
+        return false;
+    }
+
+    // Check if the process has been launched in the same folder as Bundle_PC.ipk
+    TCHAR filename[MAX_PATH];
+    GetModuleFileNameEx(phandle, NULL, filename, MAX_PATH);
+
+    string exe_path = filename, bund_path = bundle_path;
+    for(int i=0; i<bund_path.size(); i++)
+        if(bund_path[i] == '/') bund_path[i] = '\\';
+
+    while(exe_path[exe_path.size()-1] != '\\') exe_path.erase(exe_path.size()-1,1);
+    while(bund_path[bund_path.size()-1] != '\\') bund_path.erase(bund_path.size()-1,1);
+
+    for(int i=0; i<exe_path.size(); i++)
+        if(toupper(exe_path[i]) != toupper(bund_path[i]) || exe_path.size() != bund_path.size()){
+            last_error = "Process \"" + process_name + "\" must be launched in \"" + bund_path + "\"!";
+            success = false;
+            return false;
+        }
 
     cout << "Success!" << endl;
     return true;
@@ -645,10 +673,18 @@ HANDLE process::get_handle(const string& process_name)
 
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
 
-    if(Process32First(snapshot, &entry))
+    DWORD processID;
+    int process_count = 0;
+
+    if(Process32First(snapshot, &entry)){
         while(Process32Next(snapshot, &entry))
-            if(!stricmp(entry.szExeFile, process_name.c_str()) )
-                return OpenProcess(PROCESS_ALL_ACCESS, FALSE, entry.th32ProcessID);
+            if(!stricmp(entry.szExeFile, process_name.c_str())){
+                processID = entry.th32ProcessID;
+                process_count++;
+                if(process_count > 1) too_many_processes = true;
+            }
+        if(process_count) return OpenProcess(PROCESS_ALL_ACCESS, FALSE, processID);
+    }
 
     return NULL;
 }

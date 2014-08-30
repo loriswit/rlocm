@@ -5,7 +5,7 @@
 /// DEVELOPPER MODE
 /****************************************/
 
-#define DEV_MODE FALSE    // DO NOT MODIFY
+#define DEV_MODE TRUE    // DO NOT MODIFY
 
 #define INIT FALSE
 #define SEED "DEADBEEF"
@@ -51,6 +51,8 @@
 #include <tlhelp32.h>
 //#include <zlib/zlib.h>
 //#include <assert.h>
+
+#include <Psapi.h>
 
 /** LIBS:
     -lconio
@@ -104,8 +106,8 @@ struct update_info
     std::string url;
 };
 
-const int BUILD = 12;
-const std::string VERSION_STR = "1.0.0";
+const int BUILD = 13;
+const std::string VERSION_STR = "1.0.1";
 const std::string UPDATE_URL = "https://dl.dropboxusercontent.com/u/109130039/rlocm/update?dl=1";
 
 const std::string PROCESS_NAME = "Rayman Legends.exe";

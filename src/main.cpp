@@ -89,7 +89,7 @@ challenge_type type;
 
 int main(int argc, char **argv)
 {
-    cout << "= SEED MANAGER =" << endl << "by Olybri (v" << VERSION_STR << ")" << endl;
+    cout << "= CHALLENGE MANAGER =" << endl << "by Olybri (v" << VERSION_STR << ")" << endl;
     #if DEV_MODE
     textcolor(BROWN);
     cout << "Build number: #" << setw(4) << setfill('0') << BUILD << " (Developer mode)" << endl;
@@ -662,7 +662,6 @@ void help_cb(Fl_Widget* widget, void*)
 void check_for_update_cb(Fl_Widget* widget, void*)
 {
     status_bar.set("Checking for update...");
-
     thread update_thread(check_for_update, true);
     update_thread.detach();
 }
@@ -749,19 +748,7 @@ bool check_bundle(void)
 
             if(!bundle_path.size()){
                 cout << "Cannot found the Bundle_PC..." << endl << "You will need to specify the path of the bundle." << endl;
-                const string pass = fl_password("Cannot found the Bundle_PC...\nYou will need to specify the path of the bundle.\nEnter password:");
-                bool correct = false;
-
-                if(pass.size() != PW.size()-1) correct = false;
-                else for(unsigned int i=0; i<PW.size()-1; i++)
-                    if(pass[i] != char(PW[i+1]-PW[0])){
-                        correct = false;
-                        break;
-                    }
-                    else correct = true;
-
-                if(!correct) error_out("Wrong password!", true);
-
+                MessageBox(0, "Cannot found the Bundle_PC...\nYou will need to specify the path of the bundle.", "Warning", MB_ICONEXCLAMATION);
 
                 char current_dir[FILENAME_MAX];
                 getcwd(current_dir, sizeof(current_dir));
@@ -792,7 +779,7 @@ string get_bundle_path(void)
     Fl_Native_File_Chooser native;
     native.title("Where is Bundle_PC.ipk?");
     native.type(Fl_Native_File_Chooser::BROWSE_FILE);
-    native.filter("Itsy Package\t*.ipk\nAll\t*.*}\n");
+    native.filter("Itsy Package\t*.ipk\n");
     native.preset_file("Bundle_PC.ipk");
 
     switch(native.show())
